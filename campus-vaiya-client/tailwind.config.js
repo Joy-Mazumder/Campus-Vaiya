@@ -9,6 +9,9 @@ export default {
       colors: {
         primary: "#3b82f6", 
         secondary: "#1e293b",
+        slate: {
+        950: '#020617',
+        },
       }
     },
   },

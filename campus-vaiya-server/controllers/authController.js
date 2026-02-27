@@ -4,37 +4,38 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 // Registration Logic
+// controllers/authController.js
+
 exports.register = async (req, res) => {
     try {
         const { fullName, email, password, instId, referralID, studentClass } = req.body;
 
-        // Check if user exists
         const userExists = await User.findOne({ email });
-        if (userExists) return res.status(400).json({ message: "User already exists" });
+        if (userExists) return res.status(400).json({ message: "User already exists with this email." });
 
         let finalInstId = null;
 
-        // If user selects an institution
-        if (instId) {
+        // শুধু তখনই চেক করবে যদি instId থাকে এবং সেটি খালি না হয়
+        if (instId && instId !== "") { 
             const inst = await Institution.findById(instId);
+            
+            // চেক করো স্কুলটি এপ্রুভড কি না
             if (!inst || inst.status !== 'approved') {
-                return res.status(400).json({ message: "Institution not found or not approved." });
+                return res.status(400).json({ message: "Institution not found or not approved by admin." });
             }
 
-            // Referral ID check logic
+            // Referral ID লজিক
             if (inst.isReferralRequired) {
                 if (inst.referralID !== referralID) {
-                    return res.status(400).json({ message: "Invalid Referral ID for this institution." });
+                    return res.status(400).json({ message: "Invalid Referral ID. Please contact your school." });
                 }
             }
             finalInstId = inst._id;
         }
 
-        // Hash password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Create User
         const user = await User.create({
             fullName,
             email,
@@ -43,13 +44,11 @@ exports.register = async (req, res) => {
             studentClass
         });
 
-        res.status(201).json({
-            message: "Registration successful",
-            user: { id: user._id, name: user.fullName, email: user.email }
-        });
+        res.status(201).json({ message: "Registration successful" });
 
     } catch (error) {
-        res.status(500).json({ message: error.message });
+        console.log("Register Error:", error); // ব্যাকএন্ড কনসোলে এরর দেখার জন্য
+        res.status(500).json({ message: "Internal Server Error. Try again later." });
     }
 };
 

@@ -1,7 +1,7 @@
-const router = express.Router();
 const express = require('express');
+const router = express.Router();
 const { protect } = require('../middlewares/authMiddleware');
-const { requestInstitution, getApprovedInstitutions } = require('../controllers/instController');
+const { createNotice, getNotices, requestInstitution, getApprovedInstitutions } = require('../controllers/instController');
 
 
 router.post('/apply', requestInstitution);
