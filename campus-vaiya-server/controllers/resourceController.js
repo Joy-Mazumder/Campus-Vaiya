@@ -54,8 +54,30 @@ exports.upvoteResource = async (req, res) => {
         }
 
         await resource.save();
+        // upvoteResource ফাংশনের ভেতরে যখন কেউ আপভোট দিবে:
+        const author = await User.findById(resource.uploadedBy);
+        author.reputationPoints += 1; 
+        await author.save();
         res.json({ upvotes: resource.upvotes.length, downvotes: resource.downvotes.length });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
+};
+
+// controllers/resourceController.js
+exports.getFeed = async (req, res) => {
+    const user = await User.findById(req.user.id);
+    const friendIds = user.friends;
+
+    const feedPosts = await Resource.find({
+        $or: [
+            { uploadedBy: { $in: friendIds } }, // ফ্রেন্ডদের পোস্ট
+            { universityId: user.universityId }, // নিজের ভার্সিটির পোস্ট
+            { isGlobal: true, upvotesCount: { $gt: 10 } } // গ্লোবাল টপ পোস্ট
+        ]
+    })
+    .sort({ createdAt: -1 })
+    .populate('uploadedBy', 'fullName reputationPoints badge');
+
+    res.json(feedPosts);
 };

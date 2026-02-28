@@ -95,13 +95,15 @@ const Navbar = () => {
         {/* RIGHT: Stats, User & View Switcher */}
         <div className="flex items-center gap-4">
           
-          {/* Reputation / Points Badge (Unique Feature) */}
-          {user && (
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-amber-500/5 border border-amber-500/20 rounded-full text-amber-500">
-               <Star size={14} className="fill-amber-500" />
-               <span className="text-xs font-black tracking-widest">1,240</span>
-            </div>
-          )}
+          {/* Reputation / Points Badge (Dynamic) */}
+{user && (
+  <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-amber-500/5 border border-amber-500/20 rounded-full text-amber-500 shadow-[0_0_15px_rgba(245,158,11,0.05)]">
+     <Star size={14} className="fill-amber-500" />
+     <span className="text-xs font-black tracking-widest">
+        {user.reputationPoints?.toLocaleString() || 0}
+     </span>
+  </div>
+)}
 
           {user ? (
             <div className="flex items-center gap-4">
@@ -132,7 +134,7 @@ const Navbar = () => {
                    <div className="space-y-1">
                       <MenuButton to="/profile" icon={<User size={16}/>} label="My Profile" />
                       <MenuButton to="/dashboard" icon={<LayoutDashboard size={16}/>} label="Personal Dashboard" />
-                      <MenuButton to="/tools" icon={<Wrench size={16}/>} label="My Saved Tools" />
+                      <MenuButton to="/tools" icon={<Wrench size={16}/>} label="My Tools" />
                    </div>
 
                    <div className="h-[1px] bg-slate-900 my-2 mx-2"></div>

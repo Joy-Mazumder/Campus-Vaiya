@@ -1,5 +1,61 @@
 const puppeteer = require('puppeteer');
 const { GoogleGenerativeAI } = require("@google/generative-ai");
+const GPA = require('../models/GPA');
+
+// ১. সেমিস্টার অনুযায়ী GPA সেভ বা আপডেট করা
+exports.saveGPA = async (req, res) => {
+    try {
+        const { semesterOrClass, gpa, totalCredits, subjects } = req.body;
+        const studentId = req.user.id;
+
+        // চেক করা হবে এই সেমিস্টারের ডাটা আগে থেকেই আছে কি না
+        let gpaRecord = await GPA.findOne({ student: studentId, semesterOrClass });
+
+        if (gpaRecord) {
+            // যদি থাকে তবে আপডেট (Override) হবে
+            gpaRecord.gpa = gpa;
+            gpaRecord.totalCredits = totalCredits;
+            gpaRecord.subjects = subjects;
+            gpaRecord.updatedAt = Date.now();
+            await gpaRecord.save();
+        } else {
+            // না থাকলে নতুন তৈরি হবে
+            gpaRecord = await GPA.create({
+                student: studentId,
+                semesterOrClass,
+                gpa,
+                totalCredits,
+                subjects
+            });
+        }
+
+        res.status(200).json({ message: "GPA saved successfully!", data: gpaRecord });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// ২. ইউজারের সব সেমিস্টারের রেজাল্ট হিস্ট্রি দেখা
+exports.getGPAHistory = async (req, res) => {
+    try {
+        const history = await GPA.find({ student: req.user.id }).sort({ semesterOrClass: 1 });
+        
+        // Cumulative CGPA ক্যালকুলেশন
+        let totalPoints = 0;
+        let totalCredits = 0;
+
+        history.forEach(record => {
+            totalPoints += (record.gpa * record.totalCredits);
+            totalCredits += record.totalCredits;
+        });
+
+        const cumulativeCGPA = totalCredits > 0 ? (totalPoints / totalCredits).toFixed(2) : 0;
+
+        res.json({ history, cumulativeCGPA, totalCredits });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
 
 // ১. Lab Report Generator Logic
 exports.generateLabReport = async (req, res) => {

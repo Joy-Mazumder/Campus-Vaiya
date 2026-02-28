@@ -3,6 +3,9 @@ import Navbar from './components/shared/Navbar';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
 import Dashboard from './pages/Dashboard/Dashboard';
+import Tools from './pages/Tools/Tools';
+import CGPACalculator from './pages/Tools/CGPACalculator';
+import SeniorHelp from './pages/SeniorHelp/SeniorHelp';
 
 function App() {
   return (
@@ -24,6 +27,9 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/tools" element={<Tools />} /> 
+            <Route path="/tools/cgpa" element={<CGPACalculator />} />
+            <Route path="/help" element={<SeniorHelp />} />
           </Routes>
         </main>
       </div>

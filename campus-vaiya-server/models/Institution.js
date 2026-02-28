@@ -11,7 +11,10 @@ const institutionSchema = new mongoose.Schema({
     },
     referralID: { type: String, unique: true, sparse: true },
     isReferralRequired: { type: Boolean, default: false }, 
-    
+    type: { type: String, enum: ['School', 'College', 'University', 'Coaching'] },
+  owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, 
+  batches: [String], // ['Batch 2024', 'Batch 2025']
+  gradingPolicy: { type: Object },
     adminEmail: { type: String, required: true }, 
     createdAt: { type: Date, default: Date.now }
 });
