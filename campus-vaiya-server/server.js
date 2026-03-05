@@ -1,46 +1,48 @@
-const http = require('http');
-const { Server } = require('socket.io');
-const socketMain = require('./sockets/socketMain');
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
-
-// Route imports
 const authRoutes = require('./routes/authRoutes');
+const toolRoutes = require('./routes/toolRoutes');
 const instRoutes = require('./routes/instRoutes');
-const adminRoutes = require('./routes/adminRoutes');
-const resourceRoutes = require('./routes/resourceRoutes');
-
+const userRoutes = require('./routes/userRoutes');
+const socialRoutes = require('./routes/socialRoutes');
+// আপনার cloudinary কনফিগ ফাইল থেকে ইমপোর্ট করুন
+const { cloudinary } = require('./config/cloudinary');
 const app = express();
 
-const server = http.createServer(app); // HTTP Server 
-const io = new Server(server, {
-    cors: {
-        origin: "*", 
-        methods: ["GET", "POST"]
-    }
-});
-socketMain(io); // Socket.IO Logic
-
-// Connect to Database
+// Database Connection
 connectDB();
 
 // Middlewares
 app.use(cors());
 app.use(express.json());
 
-// API Routes
+// Routes
 app.use('/api/auth', authRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/tools', toolRoutes); 
 app.use('/api/institution', instRoutes);
-app.use('/api/resources', resourceRoutes);
-app.use('/api/chat', require('./routes/chatRoutes'));
-app.use('/api/tools', require('./routes/toolRoutes'));
-
-app.get('/', (req, res) => {
-    res.send('CampusVaiya API is running...');
+app.use('/api/social', socialRoutes);
+app.use((err, req, res, next) => {
+  console.error("🛑 Real Error:", err);
+  res.status(500).json({
+    message: err.message || "Internal Server Error",
+    error: err
+  });
 });
+// Test Cloudinary Connection
+const testCloudinary = async () => {
+  try {
+    const result = await cloudinary.uploader.upload("https://www.google.com/images/branding/googlelogo/1x/googlelogo_color_272x92dp.png");
+    console.log("✅ Cloudinary logic is perfect! URL:", result.secure_url);
+  } catch (err) {
+    console.log("❌ Cloudinary Credential Error:", err.message);
+  }
+};
+testCloudinary();
+// Basic Route
+app.get('/', (req, res) => res.send('CampusVaiya API is running...'));
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

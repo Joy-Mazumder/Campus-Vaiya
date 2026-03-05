@@ -1,11 +1,9 @@
 const mongoose = require('mongoose');
-
 const noticeSchema = new mongoose.Schema({
-    title: { type: String, required: true },
-    content: { type: String, required: true },
-    universityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institution', required: true },
-    postedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-    date: { type: Date, default: Date.now }
-});
-
+  institution: { type: mongoose.Schema.Types.ObjectId, ref: 'Institution' },
+  title: { type: String, required: true },
+  content: String,
+  category: { type: String, enum: ['Exam', 'Holiday', 'Event', 'General'], default: 'General' },
+  date: { type: Date, default: Date.now }
+}, { timestamps: true });
 module.exports = mongoose.model('Notice', noticeSchema);

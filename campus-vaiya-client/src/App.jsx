@@ -1,39 +1,55 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Navbar from './components/shared/Navbar';
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+
+// Context Providers
+import { AuthProvider } from './context/AuthContext';
+import { ModeProvider } from './context/ModeContext';
+
+// Components
+import Navbar from './components/Navbar/Navbar';
 import Login from './pages/Auth/Login';
 import Register from './pages/Auth/Register';
+import CreateInstitution from './pages/Institution/CreateInstitution';
 import Dashboard from './pages/Dashboard/Dashboard';
-import Tools from './pages/Tools/Tools';
-import CGPACalculator from './pages/Tools/CGPACalculator';
-import SeniorHelp from './pages/SeniorHelp/SeniorHelp';
+import MyProfile from './pages/Profile/MyProfile';
+import LabReportGen from './pages/Tools/LabReportGen';
+import AiRoadmap from './pages/Tools/AiRoadmap';
+import GpaTracker from './pages/Tools/CGPACalculator';
+import Feed from './pages/Feed/Feed';
+
+// Placeholder Pages
+// const Dashboard = () => <div className="pt-32 text-white text-center text-3xl font-black">Dashboard (Coming Soon)</div>;
+const Home = () => <div className="pt-32 text-white text-center text-3xl font-black">Welcome to CampusVaiya</div>;
 
 function App() {
   return (
-    <Router>
-      {}
-      <div className="min-h-screen bg-[#020617] selection:bg-blue-500/30">
-        <Navbar />
-        
-        {}
-        <main className="pt-24 md:pt-32"> 
-          <Routes>
-            <Route path="/" element={
-              <div className="flex items-center justify-center min-h-[60vh]">
-                <h1 className="text-4xl md:text-6xl font-black text-white italic tracking-tighter">
-                  Welcome to <span className="text-blue-500">CampusVaiya</span>
-                </h1>
-              </div>
-            } />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/tools" element={<Tools />} /> 
-            <Route path="/tools/cgpa" element={<CGPACalculator />} />
-            <Route path="/help" element={<SeniorHelp />} />
-          </Routes>
-        </main>
-      </div>
-    </Router>
+    <AuthProvider>
+      <ModeProvider>
+        <Router>
+          <div className="min-h-screen bg-slate-950">
+            <Navbar />
+            <Toaster position="top-center" reverseOrder={false} />
+            
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/create-institution" element={<CreateInstitution />} />
+              <Route path="/profile" element={<MyProfile />} />
+              <Route path="/tools/cgpa" element={<GpaTracker />} />
+              <Route path="/tools/lab-gen" element={<LabReportGen />} />
+              <Route path="/roadmaps" element={<AiRoadmap />} />
+              <Route path="/Feed" element={<Feed />} />
+
+              {/* Catch all route */}
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </div>
+        </Router>
+      </ModeProvider>
+    </AuthProvider>
   );
 }
 

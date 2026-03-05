@@ -1,17 +1,18 @@
-const mongoose = require('mongoose');
+const mongoose = require('mongoose'); // ১. এটি এড করতে হবে
 
 const helpRequestSchema = new mongoose.Schema({
-    sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    universityId: { type: mongoose.Schema.Types.ObjectId, ref: 'Institution', required: true },
-    topic: { type: String, required: true },
-    description: { type: String },
-    status: { 
-        type: String, 
-        enum: ['pending', 'accepted', 'completed'], 
-        default: 'pending' 
-    },
-    acceptedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
-    createdAt: { type: Date, default: Date.now }
-});
+  sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  subject: String,
+  description: String,
+  images: [String],
+  targetRank: Number, 
+  category: String, 
+  status: { type: String, enum: ['Open', 'Solved'], default: 'Open' },
+  solutions: [{
+    solver: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    answer: String,
+    upvotes: { type: Number, default: 0 }
+  }]
+}, { timestamps: true });
 
-module.exports = mongoose.model('HelpRequest', helpRequestSchema);
+module.exports = mongoose.model('HelpRequest', helpRequestSchema); // ২. এটি এড করতে হবে
