@@ -7,6 +7,7 @@ const toolRoutes = require('./routes/toolRoutes');
 const instRoutes = require('./routes/instRoutes');
 const userRoutes = require('./routes/userRoutes');
 const socialRoutes = require('./routes/socialRoutes');
+const commentRoutes = require('./routes/commentRoutes');
 // আপনার cloudinary কনফিগ ফাইল থেকে ইমপোর্ট করুন
 const { cloudinary } = require('./config/cloudinary');
 const app = express();
@@ -24,6 +25,7 @@ app.use('/api/users', userRoutes);
 app.use('/api/tools', toolRoutes); 
 app.use('/api/institution', instRoutes);
 app.use('/api/social', socialRoutes);
+app.use('/api/comments', commentRoutes);
 app.use((err, req, res, next) => {
   console.error("🛑 Real Error:", err);
   res.status(500).json({

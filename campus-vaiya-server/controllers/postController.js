@@ -46,25 +46,100 @@ exports.getFeed = async (req, res) => {
   try {
     const { mode, page = 1 } = req.query;
     const limit = 10;
-    let query = {};
+    const skip = (parseInt(page) - 1) * limit;
+    const now = new Date();
 
+    // ইউজারের দেখা পোস্টগুলো ফিল্টার করতে (Optional but Recommended)
+    const viewedPosts = req.user.viewedPosts || []; 
+
+    let matchQuery = {};
     if (mode === 'campus') {
       const instId = req.user.institution?._id || req.user.institution;
       if (!instId) return res.json([]);
-      query = { institution: instId, visibility: 'campus' };
+      matchQuery = { institution: instId, visibility: 'campus' };
     } else if (mode === 'friends') {
       const user = await User.findById(req.user._id);
-      query = { author: { $in: user.connections }, visibility: 'friends' };
+      matchQuery = { author: { $in: user.connections }, visibility: 'friends' };
     } else {
-      query = { visibility: 'global' };
+      matchQuery = { visibility: 'global' };
     }
 
-    const posts = await Post.find(query)
-      .populate('author', 'fullName profilePic badge reputationPoints')
-      .populate('institution', 'name')
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .skip((page - 1) * limit);
+    const posts = await Post.aggregate([
+      { $match: matchQuery },
+      {
+        $addFields: {
+          // ১. এনগেজমেন্ট কাউন্ট বের করা
+          upvoteCount: { $size: { $ifNull: ["$upvotes", []] } },
+          commentCount: { $size: { $ifNull: ["$comments", []] } },
+          // পোস্টের বয়স (ঘণ্টায়) - র‍্যাঙ্কিংয়ের জন্য ঘণ্টা বেশি কার্যকর
+          ageInHours: {
+            $divide: [{ $subtract: [now, "$createdAt"] }, 3600000]
+          },
+          // ইউজার কি অলরেডি এটা দেখেছে?
+          isSeen: { $in: ["$_id", viewedPosts] }
+        }
+      },
+      {
+        $addFields: {
+          // ২. এনগেজমেন্ট স্কোর (লাইক = ১০, কমেন্ট = ৫০ পয়েন্ট)
+          engagementScore: {
+            $add: [
+              { $multiply: ["$upvoteCount", 10] },
+              { $multiply: ["$commentCount", 50] },
+              // রিসোর্স পোস্ট হলে এক্সট্রা ১০০ পয়েন্ট বোনাস
+              { $cond: [{ $eq: ["$postType", "Resource"] }, 100, 0] }
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          // ৩. স্মার্ট র‍্যাঙ্কিং ফর্মুলা (Score / (Age + 2)^Gravity)
+          // Gravity ১.৮ হলে পুরনো পোস্ট দ্রুত নিচে নামে
+          dynamicScore: {
+            $divide: [
+              "$engagementScore",
+              { $pow: [{ $add: ["$ageInHours", 2] }, 1.8] }
+            ]
+          }
+        }
+      },
+      {
+        $addFields: {
+          // ৪. ফাইনাল প্রায়োরিটি স্কোর
+          finalScore: {
+            $add: [
+              "$dynamicScore",
+              // নতুন পোস্ট বুস্ট: প্রথম ১০ মিনিটে বিশাল পুশ
+              { $cond: [{ $lt: ["$ageInHours", 0.16] }, 500, 0] }, 
+              // দেখা পোস্ট হলে স্কোর কমিয়ে দাও (পেনাল্টি)
+              { $cond: ["$isSeen", -100, 0] }
+            ]
+          }
+        }
+      },
+      { $sort: { finalScore: -1 } }, 
+      { $skip: skip },
+      { $limit: limit },
+      // ৫. পপুলেট (সবার শেষে করলে পারফরম্যান্স ভালো থাকে)
+      {
+        $lookup: {
+          from: "users",
+          localField: "author",
+          foreignField: "_id",
+          as: "author"
+        }
+      },
+      { $unwind: "$author" },
+      {
+        $project: {
+          "author.password": 0,
+          "author.email": 0,
+          "dynamicScore": 0,
+          "engagementScore": 0
+        }
+      }
+    ]);
 
     res.json(posts);
   } catch (error) {

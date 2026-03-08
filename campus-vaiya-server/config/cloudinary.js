@@ -11,13 +11,15 @@ cloudinary.config({
 const storage = new CloudinaryStorage({
   cloudinary: cloudinary,
   params: async (req, file) => {
-    // ফাইলের ধরন অনুযায়ী resource_type এবং ফরম্যাট হ্যান্ডেল করা
     const isPDF = file.mimetype === 'application/pdf';
     
     return {
       folder: 'CampusVaiya_Uploads',
-      resource_type: 'auto', // Cloudinary নিজে থেকে PDF বা Image বুঝে নিবে
+      // PDF হলে 'raw', অন্যথায় 'auto' বা 'image'
+      resource_type: isPDF ? 'raw' : 'auto', 
       public_id: `${Date.now()}-${file.originalname.split('.')[0]}`,
+      // PDF এর ক্ষেত্রে ফরম্যাট দেওয়া যাবে না, raw ফাইলে ফরম্যাট থাকে না
+      format: isPDF ? undefined : file.mimetype.split('/')[1], 
     };
   },
 });
