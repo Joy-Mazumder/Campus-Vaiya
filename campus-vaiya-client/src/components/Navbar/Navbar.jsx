@@ -25,7 +25,7 @@ const Navbar = () => {
   const navLinks = [
     { name: "Feed", path: "/Feed", icon: <LayoutDashboard size={18} /> },
     { name: "Library", path: "/resources", icon: <BookOpen size={18} /> },
-    { name: "Seniors", path: "/help", icon: <MessageSquare size={18} /> },
+    { name: "Seniors", path: "/senior-help", icon: <MessageSquare size={18} /> },
     { name: "Roadmaps", path: "/roadmaps", icon: <Map size={18} /> },
   ];
 

@@ -16,6 +16,7 @@ import MyProfile from './pages/Profile/MyProfile';
 import LabReportGen from './pages/Tools/LabReportGen';
 import AiRoadmap from './pages/Tools/AiRoadmap';
 import GpaTracker from './pages/Tools/CGPACalculator';
+import SeniorHelp from './pages/SeniorHelp/SeniorHelp';
 import Feed from './pages/Feed/Feed';
 
 // Placeholder Pages
@@ -41,6 +42,7 @@ function App() {
               <Route path="/tools/cgpa" element={<GpaTracker />} />
               <Route path="/tools/lab-gen" element={<LabReportGen />} />
               <Route path="/roadmaps" element={<AiRoadmap />} />
+              <Route path="/senior-help" element={<SeniorHelp />} />
               <Route path="/Feed" element={<Feed />} />
 
               {/* Catch all route */}

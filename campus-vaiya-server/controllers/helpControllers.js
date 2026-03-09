@@ -1,22 +1,19 @@
 const HelpRequest = require('../models/HelpRequest');
 const User = require('../models/User');
 
-// ১. জুনিয়র যখন রিকোয়েস্ট পাঠাবে
-// এই অংশটি createRequest ফাংশনের ভেতর লজিক হিসেবে থাকবে
 exports.createRequest = async (req, res) => {
   try {
     const { subject, category, topic, description } = req.body;
     let images = [];
     let pdfUrl = "";
 
-    // যদি ইমেজ থাকে তবে ক্লাউডিনারি থেকে আসা ইউআরএল গুলো সেভ হবে
-    if (req.files && req.files.images) {
-      images = req.files.images.map(file => file.path); 
-    }
-    
-    // যদি PDF থাকে
-    if (req.files && req.files.pdf) {
-      pdfUrl = req.files.pdf[0].path;
+    if (req.files) {
+        if (req.files.images) {
+            images = req.files.images.map(file => file.path); 
+        }
+        if (req.files.pdf) {
+            pdfUrl = req.files.pdf[0].path;
+        }
     }
 
     const newRequest = await HelpRequest.create({
@@ -25,7 +22,7 @@ exports.createRequest = async (req, res) => {
       category,
       topic,
       description,
-      images, //
+      images, 
       pdf: pdfUrl,
       senderRank: req.user.rank,
       targetRankMin: req.user.rank + 1,
@@ -38,30 +35,19 @@ exports.createRequest = async (req, res) => {
   }
 };
 
-// ২. সিনিয়রদের জন্য স্পেশালিটি অনুযায়ী রিকোয়েস্ট লিস্ট
 exports.getAvailableRequests = async (req, res) => {
   try {
-    const { mode } = req.query; 
     const user = req.user;
-
-    // যদি ইউজার তার হেল্প অপশন অফ করে রাখে
-    if (!user.helpSettings.available) {
-      return res.json([]);
-    }
+    if (!user.helpSettings.available) return res.json([]);
 
     let query = {
       status: 'Open',
-      targetRankMin: { $lte: user.rank }, // শুধু ছোটদের রিকোয়েস্ট দেখবে
+      targetRankMin: { $lte: user.rank },
       sender: { $ne: user._id }
     };
 
-    // সিনিয়র যদি নির্দিষ্ট সাবজেক্ট পছন্দ করে থাকে (Specialities Filter)
-    if (user.specialities && user.specialities.length > 0) {
+    if (user.specialities?.length > 0) {
       query.subject = { $in: user.specialities };
-    }
-
-    if (mode === 'campus') {
-      query.institution = user.institution;
     }
 
     const requests = await HelpRequest.find(query)
@@ -74,7 +60,19 @@ exports.getAvailableRequests = async (req, res) => {
   }
 };
 
-// ৩. সিনিয়র রিকোয়েস্ট এক্সেপ্ট করলে
+// নতুন ফাংশন: ইউজারের এক্সেপ্ট করা রিকোয়েস্ট দেখতে
+exports.getMyAcceptedRequests = async (req, res) => {
+    try {
+        const requests = await HelpRequest.find({
+            acceptedBy: req.user._id,
+            status: 'Accepted'
+        }).populate('sender', 'fullName');
+        res.json(requests);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 exports.acceptRequest = async (req, res) => {
   try {
     const request = await HelpRequest.findById(req.params.id);
@@ -87,33 +85,49 @@ exports.acceptRequest = async (req, res) => {
     request.acceptedAt = new Date();
     await request.save();
 
-    res.json({ message: "Accepted! Please provide a solution within 24h.", request });
+    res.json({ message: "Accepted!", request });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// ৪. সলিউশন সাবমিট করা (+১৪ পয়েন্ট লজিক)
 exports.submitSolution = async (req, res) => {
   try {
-    const { text, image } = req.body;
+    const { text } = req.body;
+    const solutionImagePath = req.file ? req.file.path : ""; // req.file থেকে নেওয়া হয়েছে
+    
     const request = await HelpRequest.findById(req.params.id);
-
     if (request.acceptedBy.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
     request.status = 'Solved';
-    request.solution = { text, image, solvedAt: new Date() };
+    request.solution = { 
+        text, 
+        image: solutionImagePath, 
+        solvedAt: new Date(),
+        votes: { up: [], down: [] } 
+    };
     await request.save();
 
-    // সিনিয়রকে +১৪ পয়েন্ট দেওয়া
     await User.findByIdAndUpdate(req.user._id, { $inc: { reputationPoints: 14 } });
 
-    res.json({ message: "Solution submitted! You earned +14 points." });
+    res.json({ message: "Solution submitted! +14 points earned." });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+};
+
+exports.browseHelpRequests = async (req, res) => {
+    try {
+      const requests = await HelpRequest.find({ status: 'Solved' })
+        .populate('sender', 'fullName profilePic rank')
+        .populate('acceptedBy', 'fullName reputationPoints')
+        .sort({ updatedAt: -1 });
+      res.json(requests);
+    } catch (error) {
+      res.status(500).json({ message: error.message });
+    }
 };
 
 // ৫. ভোট সিস্টেম (Upvote +4, Downvote -2)
@@ -138,27 +152,4 @@ exports.voteSolution = async (req, res) => {
     }
   };
 
-  exports.browseHelpRequests = async (req, res) => {
-  try {
-    const { subject, currentClass, category } = req.query;
-    let query = { status: 'Solved' }; // সাধারণত সলভড ইস্যুগুলোই মানুষ দেখে শিখবে
-
-    if (subject) query.subject = subject;
-    if (category) query.category = category;
-    
-    // ক্লাস অনুযায়ী ফিল্টার (যেমন: ক্লাস ৯ এর সব প্রবলেম দেখতে চাওয়া)
-    if (currentClass) {
-      // রিকোয়েস্ট যখন করা হয়েছিল তখন সেন্ডারের র‍্যাঙ্ক/ক্লাস কত ছিল
-      query.senderRank = currentClass; 
-    }
-
-    const requests = await HelpRequest.find(query)
-      .populate('sender', 'fullName profilePic rank')
-      .populate('acceptedBy', 'fullName reputationPoints')
-      .sort({ updatedAt: -1 });
-
-    res.json(requests);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
+  
