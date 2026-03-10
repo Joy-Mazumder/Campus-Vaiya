@@ -17,7 +17,7 @@ const helpRequestSchema = new mongoose.Schema({
   
   acceptedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   acceptedAt: { type: Date }, // Added for 24h logic
-  
+  declinedBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   solution: {
     text: String,
     image: String, // Added for solution image

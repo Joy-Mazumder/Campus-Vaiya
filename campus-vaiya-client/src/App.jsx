@@ -18,6 +18,8 @@ import AiRoadmap from './pages/Tools/AiRoadmap';
 import GpaTracker from './pages/Tools/CGPACalculator';
 import SeniorHelp from './pages/SeniorHelp/SeniorHelp';
 import Feed from './pages/Feed/Feed';
+import Messages from './pages/Chat/Messages'; 
+import { SocketProvider } from './context/SocketContext';
 
 // Placeholder Pages
 // const Dashboard = () => <div className="pt-32 text-white text-center text-3xl font-black">Dashboard (Coming Soon)</div>;
@@ -26,7 +28,8 @@ const Home = () => <div className="pt-32 text-white text-center text-3xl font-bl
 function App() {
   return (
     <AuthProvider>
-      <ModeProvider>
+      <SocketProvider> 
+        <ModeProvider>
         <Router>
           <div className="min-h-screen bg-slate-950">
             <Navbar />
@@ -44,6 +47,8 @@ function App() {
               <Route path="/roadmaps" element={<AiRoadmap />} />
               <Route path="/senior-help" element={<SeniorHelp />} />
               <Route path="/Feed" element={<Feed />} />
+              <Route path="/messages" element={<Messages />} />
+              <Route path="/messages/:receiverId" element={<Messages />} />
 
               {/* Catch all route */}
               <Route path="*" element={<Navigate to="/" />} />
@@ -51,6 +56,7 @@ function App() {
           </div>
         </Router>
       </ModeProvider>
+      </SocketProvider>
     </AuthProvider>
   );
 }

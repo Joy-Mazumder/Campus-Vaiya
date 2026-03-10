@@ -246,34 +246,7 @@ const Feed = () => {
         </div>
       </div>
 
-      {/* --- RIGHT COLUMN: SIDEBAR (DESKTOP) --- */}
-      <div className="hidden lg:block w-80">
-        <div className="bg-slate-900 border border-slate-800 rounded-[32px] p-6 sticky top-28">
-           <div className="flex items-center gap-2 mb-6 border-b border-slate-800 pb-4">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <h3 className="text-white font-black uppercase text-xs tracking-widest">Chat & Connections</h3>
-           </div>
-           
-           <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-              {connections.length > 0 ? connections.map(friend => (
-                <div key={friend._id} className="flex items-center justify-between group cursor-pointer hover:bg-slate-800 p-3 rounded-2xl transition-all border border-transparent hover:border-slate-700">
-                  <div className="flex items-center gap-3">
-                    <img src={friend.profilePic || getAvatar(friend.fullName)} className="w-10 h-10 rounded-xl object-cover" alt="friend" />
-                    <div>
-                      <p className="text-xs font-bold text-slate-200 group-hover:text-white">{friend.fullName}</p>
-                      <p className="text-[9px] text-green-500 uppercase font-black">Online</p>
-                    </div>
-                  </div>
-                  <MessageSquare size={16} className="text-slate-600 group-hover:text-blue-500 transition-colors" />
-                </div>
-              )) : (
-                <div className="text-center py-8">
-                    <p className="text-[10px] text-slate-600 font-bold uppercase">No active connections</p>
-                </div>
-              )}
-           </div>
-        </div>
-      </div>
+      
     </div>
   );
 };

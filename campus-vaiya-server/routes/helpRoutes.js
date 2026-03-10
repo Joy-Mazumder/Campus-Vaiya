@@ -13,7 +13,7 @@ router.get('/available', protect, helpController.getAvailableRequests);
 router.get('/my-accepted', protect, helpController.getMyAcceptedRequests); // ফ্রন্টএন্ডের জন্য জরুরি
 router.get('/solved', helpController.browseHelpRequests); // ফ্রন্টএন্ডের 'solved' রাউটের জন্য
 router.get('/browse', helpController.browseHelpRequests);
-
+router.put('/decline/:id', protect, helpController.declineRequest);
 router.put('/accept/:id', protect, helpController.acceptRequest);
 router.put('/solve/:id', protect, upload.single('solutionImage'), helpController.submitSolution);
 router.post('/vote/:id', protect, helpController.voteSolution);

@@ -1,16 +1,17 @@
 import React, { useContext, useState, useEffect } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
-import { ModeContext } from "../../context/ModeContext"; // মুড সুইচিংয়ের জন্য
+import { ModeContext } from "../../context/ModeContext";
 import { 
   LogOut, User, BookOpen, MessageSquare, 
   Globe, Building2, Bell, LayoutDashboard, Wrench,
-  Search, Command, Zap, Star, Menu, X, ChevronDown, Map
+  Search, Command, Zap, Star, Menu, X, ChevronDown, Map,
+  MessageCircle, Users // নতুন আইকন ইমপোর্ট
 } from "lucide-react";
 
 const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
-  const { mode, toggleMode } = useContext(ModeContext); // context theke ashbe
+  const { mode, toggleMode } = useContext(ModeContext);
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -53,16 +54,10 @@ const Navbar = () => {
           {/* Mode Switcher */}
           {user && (
             <div className="hidden sm:flex bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
-                <button 
-                    onClick={() => toggleMode('campus')}
-                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${mode === 'campus' ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20' : 'text-slate-500 hover:text-white'}`}
-                >
+                <button onClick={() => toggleMode('campus')} className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${mode === 'campus' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
                     <Building2 size={12}/> CAMPUS
                 </button>
-                <button 
-                    onClick={() => toggleMode('global')}
-                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${mode === 'global' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-500 hover:text-white'}`}
-                >
+                <button onClick={() => toggleMode('global')} className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-[10px] font-black tracking-widest transition-all ${mode === 'global' ? 'bg-indigo-600 text-white shadow-lg' : 'text-slate-500 hover:text-white'}`}>
                     <Globe size={12}/> GLOBAL
                 </button>
             </div>
@@ -72,39 +67,51 @@ const Navbar = () => {
         {/* CENTER: Navigation Links */}
         <div className="hidden md:flex items-center gap-1 bg-slate-950/30 p-1 rounded-2xl border border-slate-800/40">
           {navLinks.map((link) => (
-            <Link
-              key={link.path} to={link.path}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${location.pathname === link.path ? "bg-blue-600/10 text-blue-400 shadow-inner" : "text-slate-400 hover:text-white hover:bg-slate-800/50"}`}
-            >
+            <Link key={link.path} to={link.path} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${location.pathname === link.path ? "bg-blue-600/10 text-blue-400 shadow-inner" : "text-slate-400 hover:text-white hover:bg-slate-800/50"}`}>
               {link.icon} {link.name}
             </Link>
           ))}
         </div>
 
-        {/* RIGHT: Stats & Profile */}
-        <div className="flex items-center gap-4">
+        {/* RIGHT: Stats, Messages & Profile */}
+        <div className="flex items-center gap-3">
           {user && (
-            <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-amber-500/5 border border-amber-500/20 rounded-full text-amber-500">
-                <Star size={14} className="fill-amber-500" />
-                <span className="text-xs font-black tracking-widest">{user.reputationPoints || 0}</span>
-            </div>
+            <>
+              {/* Reputation Points */}
+              <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-amber-500/5 border border-amber-500/20 rounded-full text-amber-500">
+                  <Star size={14} className="fill-amber-500" />
+                  <span className="text-xs font-black tracking-widest">{user.reputationPoints || 0}</span>
+              </div>
+
+              {/* Central Messaging & Friends Icon */}
+              <Link 
+                to="/messages" 
+                className={`relative p-2.5 rounded-full border border-slate-800 transition-all ${location.pathname === '/messages' ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-blue-400 bg-slate-900/50'}`}
+                title="Messages & Connections"
+              >
+                <MessageCircle size={20} />
+                {/* নতুন মেসেজ বা ফ্রেন্ড রিকোয়েস্ট থাকলে এই ডটটি দেখাবে */}
+                <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-slate-950 animate-pulse"></span>
+              </Link>
+
+              {/* Notifications */}
+              <button className="relative p-2.5 text-slate-400 hover:text-blue-400 bg-slate-900/50 rounded-full border border-slate-800 transition-all">
+                <Bell size={20} />
+                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-blue-500 rounded-full ring-2 ring-slate-950"></span>
+              </button>
+            </>
           )}
 
           {user ? (
-            <div className="flex items-center gap-3">
-              <button className="relative p-2.5 text-slate-400 hover:text-blue-400 bg-slate-900/50 rounded-full border border-slate-800 transition-all">
-                <Bell size={20} />
-                <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-blue-500 rounded-full ring-4 ring-slate-950 animate-pulse"></span>
-              </button>
-
+            <div className="flex items-center gap-2">
               <div className="relative group">
                 <button className="flex items-center gap-2 p-1.5 bg-slate-950 border border-slate-800 rounded-full transition-all group-hover:border-blue-500/50">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 p-[2px]">
                     <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center text-[10px] font-black text-white uppercase overflow-hidden">
-                        {user.profilePic ? <img src={user.profilePic} /> : user.fullName.charAt(0)}
+                        {user.profilePic ? <img src={user.profilePic} className="w-full h-full object-cover" alt="avatar" /> : user.fullName.charAt(0)}
                     </div>
                   </div>
-                  <ChevronDown size={14} className="text-slate-500 mr-2 group-hover:rotate-180 transition-transform duration-300" />
+                  <ChevronDown size={14} className="text-slate-500 mr-1 group-hover:rotate-180 transition-transform duration-300" />
                 </button>
 
                 {/* Profile Dropdown */}
@@ -124,6 +131,7 @@ const Navbar = () => {
                 </div>
               </div>
 
+              {/* Mobile Menu Toggle */}
               <button className="md:hidden p-2.5 bg-slate-900 rounded-xl border border-slate-800 text-slate-400" onClick={() => setIsMenuOpen(!isMenuOpen)}>
                 {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
               </button>
@@ -148,6 +156,12 @@ const Navbar = () => {
                <Building2 size={14}/> CAMPUS
              </button>
           </div>
+          
+          {/* Mobile Messages Link */}
+          <Link to="/messages" className="flex items-center gap-4 px-5 py-4 rounded-2xl text-blue-400 bg-blue-600/10 border border-blue-500/20 font-bold" onClick={() => setIsMenuOpen(false)}>
+            <MessageCircle size={20} /> Messages & Connections
+          </Link>
+
           {navLinks.map((link) => (
             <Link key={link.path} to={link.path} className="flex items-center gap-4 px-5 py-4 rounded-2xl text-slate-300 bg-slate-900/50 border border-slate-800/50 font-bold" onClick={() => setIsMenuOpen(false)}>
               {link.icon} {link.name}

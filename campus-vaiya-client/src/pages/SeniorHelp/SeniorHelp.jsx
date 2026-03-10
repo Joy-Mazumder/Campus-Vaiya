@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { MessageSquare, ThumbsUp, UserPlus, Send, CheckCircle, Clock, FileText, ImageIcon, Filter, XCircle, AlertTriangle } from 'lucide-react';
+import { MessageSquare, ThumbsUp, ThumbsDown, UserPlus, Send, CheckCircle, Clock, FileText, ImageIcon, Filter, XCircle, AlertTriangle, ArrowDownCircle } from 'lucide-react';
 
 const SeniorHelp = () => {
     // --- States ---
@@ -24,8 +24,10 @@ const SeniorHelp = () => {
     });
     const [images, setImages] = useState([]);
     const [pdfFile, setPdfFile] = useState(null);
-    const [solutionImage, setSolutionImage] = useState(null); // For senior's answer
+    const [solutionImage, setSolutionImage] = useState(null); 
+
     const API = import.meta.env.VITE_API_URL;
+
     // --- Fetch Data ---
     useEffect(() => {
         fetchRequests();
@@ -35,16 +37,14 @@ const SeniorHelp = () => {
         try {
             const token = localStorage.getItem('token');
             const config = {
-            headers: {
-                Authorization: `Bearer ${token}`,
-            },
-        };
-            // Configure these endpoints according to your exact backend routes
-            const availableRes = await axios.get(`${API}/help/available`, config).catch(() => ({ data: [] })); // Fetches requests available for the senior's rank
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            };
+            
+            const availableRes = await axios.get(`${API}/help/available`, config).catch(() => ({ data: [] })); 
             setIncomingRequests(Array.isArray(availableRes.data) ? availableRes.data : []);
 
-            // Assuming you have a route to get user's accepted requests
-            // If not, you can filter them from available requests or create a specific endpoint
             const acceptedRes = await axios.get(`${API}/help/my-accepted`, config).catch(() => ({ data: [] })); 
             setAcceptedRequests(Array.isArray(acceptedRes.data) ? acceptedRes.data : []);
 
@@ -99,11 +99,7 @@ const SeniorHelp = () => {
     const handleAccept = async (id) => {
         try {
             const token = localStorage.getItem('token');
-            const config = {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            };
+            const config = { headers: { Authorization: `Bearer ${token}` } };
             await axios.put(`${API}/help/accept/${id}`, null, config);
             setSelectedIncoming(null);
             setActiveTab('accepted');
@@ -113,10 +109,17 @@ const SeniorHelp = () => {
         }
     };
 
-    const handleDecline = (id) => {
-        // Removes the request from local view (doesn't delete from DB so others can see)
-        setIncomingRequests(prev => prev.filter(req => req._id !== id));
-        setSelectedIncoming(null);
+    const handleDecline = async (id) => {
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(`${API}/help/decline/${id}`, {}, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setIncomingRequests(prev => prev.filter(req => req._id !== id));
+            setSelectedIncoming(null);
+        } catch (err) {
+            console.error("Failed to decline request");
+        }
     };
 
     const handlePostSolution = async (e) => {
@@ -146,21 +149,69 @@ const SeniorHelp = () => {
         }
     };
 
-    return (
-        <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
+    // Voting Handler
+    const handleVote = async (id, type) => {
+        try {
+            const token = localStorage.getItem('token');
+            const config = { headers: { Authorization: `Bearer ${token}` } };
             
-            {/* Header Section - Fixed Navbar Overlap with pt-24 and distinctive background */}
-            <div className="pt-24 pb-10 px-4 md:px-8 bg-gradient-to-b from-indigo-950/40 to-slate-950 border-b border-slate-800/50">
-                <div className="max-w-7xl mx-auto">
-                    <h1 className="text-3xl md:text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-purple-400 flex items-center gap-3">
-                        <MessageSquare className="text-indigo-500" size={32} /> Senior Help Desk
+            await axios.post(`${API}/help/vote/${id}`, { type }, config);
+            
+            // রিকোয়েস্ট ফেচ করে মডালের ডেটা আপডেট করা
+            const solvedRes = await axios.get(`${API}/help/browse`, config);
+            setBrowseRequests(Array.isArray(solvedRes.data) ? solvedRes.data : []);
+            
+            const updatedItem = solvedRes.data.find(r => r._id === id);
+            if (updatedItem) setViewSolvedModal(updatedItem);
+
+        } catch (err) {
+            console.error("Failed to vote");
+        }
+    };
+
+    return (
+       <div className="min-h-screen bg-slate-950 text-slate-100 font-sans pb-20">
+    
+    {/* Header Section - Space অনেক কমিয়ে আনা হয়েছে */}
+    <div className="pt-24 pb-6 px-4 md:px-8 bg-gradient-to-b from-indigo-950/40 via-slate-950 to-slate-950">
+        <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                
+                {/* Left Side: Title & Desc */}
+                <div className="text-center md:text-left">
+                    <h1 className="text-4xl md:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 flex items-center justify-center md:justify-start gap-4">
+                        <MessageSquare className="text-indigo-500 drop-shadow-[0_0_15px_rgba(99,102,241,0.5)]" size={36} /> 
+                        Senior Help Desk
                     </h1>
-                    <p className="text-slate-400 mt-2 text-sm md:text-base">Connect with seniors, solve problems, and earn reputation points.</p>
+                    <p className="text-slate-400 mt-2 text-base md:text-lg max-w-xl leading-relaxed">
+                        Connect with the brightest minds and build your 
+                        <span className="text-indigo-400 font-semibold"> reputation points</span>.
+                    </p>
+                </div>
+
+                {/* Right Side / Immediate Bottom: Compact Explore Button */}
+                <div className="flex justify-center md:justify-end">
+                    <button 
+                        onClick={() => document.getElementById('browse-section').scrollIntoView({ behavior: 'smooth' })}
+                        className="group flex items-center gap-3 px-4 py-2 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/20 rounded-full transition-all duration-300"
+                    >
+                        <span className="text-indigo-300 text-[10px] md:text-xs uppercase tracking-widest font-bold">
+                            Explore Others Problems & Solved Issues
+                        </span>
+                        <div className="bg-indigo-600 p-1 rounded-full text-white animate-bounce shadow-lg">
+                            <ArrowDownCircle size={14} />
+                        </div>
+                    </button>
                 </div>
             </div>
-
+            
+            {/* Simple Thin Divider - টেক্সটের ঠিক নিচেই */}
+            <div className="w-full h-px bg-gradient-to-r from-transparent via-slate-800 to-transparent mt-6"></div>
+        </div>
+    </div>
+       
             <div className="p-4 md:p-8 max-w-7xl mx-auto">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 mb-12">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     
                     {/* LEFT: Ask for Help */}
                     <div className="lg:col-span-5 bg-slate-900/50 border border-slate-800 p-6 rounded-2xl shadow-xl backdrop-blur-sm h-fit">
@@ -195,7 +246,6 @@ const SeniorHelp = () => {
                                 onChange={(e) => setFormData({...formData, description: e.target.value})} required
                             ></textarea>
                             
-                            {/* Attachments: Separate Boxes for Images and PDF */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 <div className="p-3 bg-indigo-900/20 rounded-xl border border-dashed border-indigo-500/30 flex flex-col gap-2">
                                     <label className="text-[10px] text-indigo-400 flex items-center gap-1 uppercase font-bold tracking-wider">
@@ -291,7 +341,10 @@ const SeniorHelp = () => {
                     </div>
                 </div>
 
-                {/* BOTTOM: Browse Section */}
+                
+
+                <div id="browse-section" className="pt-10">
+                    {/* BOTTOM: Browse Section */}
                 <div className="bg-slate-900/50 border border-slate-800 p-6 md:p-8 rounded-2xl">
                     <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
                         <h2 className="text-2xl font-bold text-slate-100">Browse Solved Issues</h2>
@@ -330,8 +383,9 @@ const SeniorHelp = () => {
                                         <span className="text-[10px] font-black uppercase tracking-wider px-2 py-1 bg-indigo-500/20 text-indigo-400 rounded-md">
                                             {req.category}
                                         </span>
-                                        <div className="flex items-center gap-1 text-green-400 text-xs font-bold">
-                                            <ThumbsUp size={14} /> {req.solution?.votes?.up?.length || 0}
+                                        {/* Card er baire shudhu upvote count dekhabe */}
+                                        <div className="flex items-center gap-1 text-green-400 text-xs font-bold bg-emerald-900/20 px-2 py-1 rounded">
+                                            <ThumbsUp size={12} /> {req.solution?.votes?.up?.length || 0}
                                         </div>
                                     </div>
                                     <h3 className="font-bold text-slate-100 mb-2 group-hover:text-indigo-400 transition-colors">{req.topic}</h3>
@@ -348,21 +402,39 @@ const SeniorHelp = () => {
                         )}
                     </div>
                 </div>
+                </div>
 
                 {/* ================= MODALS ================= */}
                 
                 {/* Modal: View & Accept Request */}
                 {selectedIncoming && (
                     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
-                        <div className="bg-slate-900 border border-slate-800 w-full max-w-md p-6 rounded-2xl shadow-2xl">
+                        <div className="bg-slate-900 border border-slate-800 w-full max-w-lg p-6 rounded-2xl shadow-2xl">
                             <h3 className="text-xl font-bold text-indigo-400 mb-1">{selectedIncoming.subject}</h3>
                             <h4 className="text-sm text-slate-400 mb-4">{selectedIncoming.topic}</h4>
                             
-                            <div className="bg-slate-800 p-4 rounded-xl mb-6 max-h-48 overflow-y-auto custom-scrollbar">
+                            <div className="bg-slate-800 p-4 rounded-xl mb-4 max-h-48 overflow-y-auto custom-scrollbar">
                                 <p className="text-sm text-slate-300 whitespace-pre-line">{selectedIncoming.description}</p>
                             </div>
 
-                            <div className="flex justify-between items-center bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20 mb-6">
+                            {/* Show Attached Images and PDF */}
+                            {selectedIncoming.images && selectedIncoming.images.length > 0 && (
+                                <div className="flex gap-2 mb-4 overflow-x-auto pb-2 custom-scrollbar">
+                                    {selectedIncoming.images.map((img, i) => (
+                                        <a key={i} href={img} target="_blank" rel="noopener noreferrer">
+                                            <img src={img} alt="attachment" className="h-16 w-16 object-cover rounded-lg border border-slate-700 hover:border-indigo-400 cursor-pointer" />
+                                        </a>
+                                    ))}
+                                </div>
+                            )}
+
+                            {selectedIncoming.pdf && (
+                                <a href={selectedIncoming.pdf} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 mb-6 text-red-400 hover:text-red-300 text-sm font-bold bg-red-900/20 p-2 rounded-lg border border-red-500/20 w-fit">
+                                    <FileText size={16} /> Read Attached PDF Document
+                                </a>
+                            )}
+
+                            <div className="flex justify-between items-center bg-indigo-900/20 p-3 rounded-lg border border-indigo-500/20 mb-6 mt-2">
                                 <div className="flex items-center gap-2 text-xs text-indigo-300 font-semibold">
                                     <Clock size={14}/> Once accepted, solve within 24h
                                 </div>
@@ -392,11 +464,21 @@ const SeniorHelp = () => {
                                 </button>
                             </div>
 
-                            {/* Read the Problem Context */}
-                            <div className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl mb-6">
+                            <div className="bg-slate-800/50 border border-slate-700 p-4 rounded-xl mb-6 max-h-48 overflow-y-auto custom-scrollbar">
                                 <h4 className="text-xs font-bold text-indigo-400 uppercase tracking-wider mb-2">The Request</h4>
                                 <p className="text-sm text-slate-200 font-semibold mb-1">{solutionModalData.topic}</p>
                                 <p className="text-sm text-slate-400 whitespace-pre-line">{solutionModalData.description}</p>
+                                
+                                {/* Show Images/PDF from problem inside solution modal too */}
+                                {solutionModalData.images && solutionModalData.images.length > 0 && (
+                                    <div className="flex gap-2 mt-3 overflow-x-auto pb-2 custom-scrollbar">
+                                        {solutionModalData.images.map((img, i) => (
+                                            <a key={i} href={img} target="_blank" rel="noopener noreferrer">
+                                                <img src={img} alt="attachment" className="h-12 w-12 object-cover rounded-md border border-slate-600" />
+                                            </a>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Submit Answer Form */}
@@ -436,7 +518,7 @@ const SeniorHelp = () => {
                     </div>
                 )}
 
-                {/* Modal: View Solved Content */}
+                {/* Modal: View Solved Content & Voting */}
                 {viewSolvedModal && (
                     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md flex items-center justify-center z-50 p-4">
                         <div className="bg-slate-900 border border-slate-800 w-full max-w-2xl p-6 md:p-8 rounded-3xl shadow-2xl max-h-[90vh] overflow-y-auto custom-scrollbar">
@@ -453,6 +535,17 @@ const SeniorHelp = () => {
                                         <FileText size={14}/> The Problem
                                     </h4>
                                     <p className="text-slate-300">{viewSolvedModal.description}</p>
+                                    
+                                    {/* Show original problem attachments */}
+                                    {viewSolvedModal.images && viewSolvedModal.images.length > 0 && (
+                                        <div className="flex gap-2 mt-4 overflow-x-auto custom-scrollbar">
+                                            {viewSolvedModal.images.map((img, i) => (
+                                                <a key={i} href={img} target="_blank" rel="noopener noreferrer">
+                                                    <img src={img} alt="problem attachment" className="h-16 w-16 object-cover rounded-lg border border-slate-700" />
+                                                </a>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="bg-green-500/5 border border-green-500/20 p-5 rounded-2xl text-sm leading-relaxed relative">
@@ -460,9 +553,37 @@ const SeniorHelp = () => {
                                         <CheckCircle size={14}/> Senior's Solution
                                     </h4>
                                     <p className="text-slate-100 whitespace-pre-line">{viewSolvedModal.solution?.text}</p>
+                                    
+                                    {/* Show solution image if senior uploaded one */}
+                                    {viewSolvedModal.solution?.image && (
+                                        <div className="mt-4 border-t border-green-500/20 pt-4">
+                                            <h5 className="text-green-400 text-[10px] uppercase tracking-wider mb-2 font-bold">Attached Solution Diagram</h5>
+                                            <a href={viewSolvedModal.solution.image} target="_blank" rel="noopener noreferrer">
+                                                <img src={viewSolvedModal.solution.image} alt="Solution" className="max-h-64 rounded-xl border border-green-500/30 object-contain" />
+                                            </a>
+                                        </div>
+                                    )}
                                 </div>
 
-                                <div className="bg-slate-800/50 p-4 rounded-2xl flex items-center justify-between border border-slate-700 mt-6">
+                                {/* Upvote/Downvote Section Inside Modal */}
+                                <div className="flex gap-3 border-t border-slate-800 pt-6 mt-4">
+                                    <button 
+                                        onClick={() => handleVote(viewSolvedModal._id, 'up')} 
+                                        className="flex items-center justify-center gap-2 bg-slate-800/80 px-5 py-2.5 rounded-xl hover:bg-emerald-900/40 transition-all group flex-1"
+                                    >
+                                        <ThumbsUp size={18} className="text-emerald-400 group-hover:scale-110 transition-transform" /> 
+                                        <span className="text-emerald-400 font-bold">{viewSolvedModal.solution?.votes?.up?.length || 0} Upvotes</span>
+                                    </button>
+                                    <button 
+                                        onClick={() => handleVote(viewSolvedModal._id, 'down')} 
+                                        className="flex items-center justify-center gap-2 bg-slate-800/80 px-5 py-2.5 rounded-xl hover:bg-rose-900/40 transition-all group flex-1"
+                                    >
+                                        <ThumbsDown size={18} className="text-rose-400 group-hover:scale-110 transition-transform" /> 
+                                        <span className="text-rose-400 font-bold">{viewSolvedModal.solution?.votes?.down?.length || 0} Downvotes</span>
+                                    </button>
+                                </div>
+
+                                <div className="bg-slate-800/50 p-4 rounded-2xl flex items-center justify-between border border-slate-700 mt-2">
                                     <div className="flex items-center gap-4">
                                         <div className="w-12 h-12 bg-indigo-600 rounded-full flex items-center justify-center font-bold text-xl text-white shadow-inner">
                                             {viewSolvedModal.acceptedBy?.fullName?.charAt(0) || "S"}

@@ -1,31 +1,34 @@
-import { createContext, useEffect, useState, useContext } from "react";
-import { io } from "socket.io-client";
-import { AuthContext } from "./AuthContext";
+import React, { createContext, useState, useEffect, useContext } from 'react';
+import { io } from 'socket.io-client';
+import { AuthContext } from './AuthContext';
 
+// এই নামেই ইম্পোর্ট করতে হবে
 export const SocketContext = createContext();
 
 export const SocketProvider = ({ children }) => {
-  const [socket, setSocket] = useState(null);
-  const { user } = useContext(AuthContext);
+    const { user } = useContext(AuthContext);
+    const [socket, setSocket] = useState(null);
+    const [onlineUsers, setOnlineUsers] = useState([]);
 
-  useEffect(() => {
-    if (user) {
-      // .env থেকে সকেট ইউআরএল নিবে
-      const newSocket = io(import.meta.env.VITE_SOCKET_URL || "http://localhost:5000");
-      setSocket(newSocket);
+    useEffect(() => {
+        if (user) {
+            // আপনার ব্যাকএন্ড ইউআরএল (VITE_SOCKET_URL=http://localhost:5000)
+            const newSocket = io(import.meta.env.VITE_SOCKET_URL);
+            setSocket(newSocket);
 
-      // ইউজারকে তার ইউনিভার্সিটির রুমে জয়েন করানো
-      if (user.universityId) {
-        newSocket.emit("join_university", user.universityId);
-      }
+            newSocket.emit("addUser", user._id);
 
-      return () => newSocket.close();
-    }
-  }, [user]);
+            newSocket.on("getOnlineUsers", (users) => {
+                setOnlineUsers(users);
+            });
 
-  return (
-    <SocketContext.Provider value={socket}>
-      {children}
-    </SocketContext.Provider>
-  );
+            return () => newSocket.close();
+        }
+    }, [user]);
+
+    return (
+        <SocketContext.Provider value={{ socket, onlineUsers }}>
+            {children}
+        </SocketContext.Provider>
+    );
 };
