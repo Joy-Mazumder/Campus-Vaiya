@@ -44,11 +44,14 @@ const Feed = () => {
   }, []);
 
   const fetchConnections = async () => {
-    try {
-      const { data } = await API.get('/social/connections');
-      setConnections(data);
-    } catch (err) { console.log("Connection load error", err) }
-  };
+  try {
+    // আপনার নতুন ব্যাকএন্ড রুট অনুযায়ী পাথ আপডেট করা হয়েছে
+    const { data } = await API.get('/messages/my-connections'); 
+    setConnections(data);
+  } catch (err) { 
+    console.log("Connection load error", err) 
+  }
+};
 
   useEffect(() => {
     fetchFeed(1);
@@ -240,7 +243,7 @@ const Feed = () => {
         {/* Post List */}
         <div className="space-y-6">
           {posts.map(post => (
-            <PostCard key={post._id} post={post} currentUser={user} getAvatar={getAvatar} />
+            <PostCard key={post._id} post={post} currentUser={user} getAvatar={getAvatar} connections={connections} />
           ))}
           {loading && <div className="text-center py-6 font-black text-slate-600 animate-pulse text-xs uppercase tracking-widest">Loading universe...</div>}
         </div>
@@ -252,13 +255,17 @@ const Feed = () => {
 };
 
 // --- SUB-COMPONENT: POST CARD ---
-const PostCard = ({ post, currentUser, getAvatar }) => {
+const PostCard = ({ post, currentUser, getAvatar, connections }) => {
   const [votes, setVotes] = useState({ up: post.upvotes?.length || 0, down: post.downvotes?.length || 0 });
   const [userVote, setUserVote] = useState(
     post.upvotes?.includes(currentUser?._id) ? 'up' : 
     post.downvotes?.includes(currentUser?._id) ? 'down' : null
   );
-  const [requested, setRequested] = useState(false);
+  const isRequested = connections?.some(conn => 
+    (conn.recipient?._id === post.author?._id || conn.requester?._id === post.author?._id)
+  );
+
+  const [requested, setRequested] = useState(isRequested);
 
   // --- New Comment States ---
   const [showComments, setShowComments] = useState(false);
@@ -307,10 +314,13 @@ const PostCard = ({ post, currentUser, getAvatar }) => {
 
   const handleConnect = async () => {
     try {
-      await API.post(`/social/connect/${post.author?._id}`);
+      await API.post('/messages/request', { recipientId: post.author?._id });
+      
       setRequested(true);
-      toast.success("Connection request sent!");
-    } catch (err) { toast.error("Request sent already") }
+      toast.success("Friend request sent! 🚀");
+    } catch (err) { 
+      toast.error(err.response?.data?.message || "Request failed");
+    }
   };
 
   // --- Fetch Comments Logic ---
@@ -377,14 +387,14 @@ const PostCard = ({ post, currentUser, getAvatar }) => {
         </div>
         
         {currentUser?._id !== post.author?._id && (
-          <button 
-            onClick={handleConnect} 
-            disabled={requested}
-            className={`p-2.5 rounded-xl transition-all ${requested ? 'text-green-500 bg-green-500/10' : 'text-slate-400 bg-slate-800 hover:bg-blue-600 hover:text-white'}`}
-          >
-            {requested ? <Check size={18} /> : <UserPlus size={18} />}
-          </button>
-        )}
+      <button 
+        onClick={handleConnect} 
+        disabled={requested}
+        className={`p-2.5 rounded-xl transition-all ${requested ? 'text-green-500 bg-green-500/10 cursor-default' : 'text-slate-400 bg-slate-800 hover:bg-blue-600 hover:text-white'}`}
+      >
+        {requested ? <Check size={18} /> : <UserPlus size={18} />}
+      </button>
+    )}
       </div>
 
       {/* POST CONTENT */}
