@@ -8,6 +8,7 @@ const SeniorHelp = () => {
     const [incomingRequests, setIncomingRequests] = useState([]);
     const [acceptedRequests, setAcceptedRequests] = useState([]);
     const [browseRequests, setBrowseRequests] = useState([]);
+    const [requestSent, setRequestSent] = useState({});
     
     // Filter States
     const [filterSubject, setFilterSubject] = useState('All Subjects');
@@ -148,6 +149,27 @@ const SeniorHelp = () => {
             alert('Submission failed');
         }
     };
+
+    const handleSeniorConnect = async (seniorId) => {
+    if (!seniorId) return;
+    
+    try {
+        const token = localStorage.getItem('token');
+        const config = {
+            headers: { Authorization: `Bearer ${token}` }
+        };
+
+        // আপনার নতুন ব্যাকএন্ড রুট অনুযায়ী (Feed.jsx এর মতো)
+        await axios.post(`${API}/messages/request`, { recipientId: seniorId }, config);
+        
+        // রিকোয়েস্ট সফল হলে ওই নির্দিষ্ট সিনিয়রের জন্য স্টেট আপডেট
+        setRequestSent(prev => ({ ...prev, [seniorId]: true }));
+        alert('Connection request sent to Senior! 🚀');
+    } catch (err) {
+        console.error("Connection failed:", err);
+        alert(err.response?.data?.message || 'Failed to send request');
+    }
+};
 
     // Voting Handler
     const handleVote = async (id, type) => {
@@ -593,9 +615,21 @@ const SeniorHelp = () => {
                                             <p className="text-[10px] text-yellow-500 font-bold tracking-widest uppercase mt-0.5">★ {viewSolvedModal.acceptedBy?.reputationPoints || 0} Points</p>
                                         </div>
                                     </div>
-                                    <button className="flex items-center gap-2 bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-xl text-xs font-bold transition-all">
-                                        <UserPlus size={14} /> Connect
-                                    </button>
+                                    <button 
+    onClick={() => handleSeniorConnect(viewSolvedModal.acceptedBy?._id)}
+    disabled={requestSent[viewSolvedModal.acceptedBy?._id]}
+    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+        requestSent[viewSolvedModal.acceptedBy?._id] 
+        ? 'bg-green-600/20 text-green-400 border border-green-600/30 cursor-default' 
+        : 'bg-slate-700 hover:bg-slate-600 text-white'
+    }`}
+>
+    {requestSent[viewSolvedModal.acceptedBy?._id] ? (
+        <> <CheckCircle size={14} /> Requested </>
+    ) : (
+        <> <UserPlus size={14} /> Connect </>
+    )}
+</button>
                                 </div>
                             </div>
                         </div>

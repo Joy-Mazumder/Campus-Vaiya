@@ -76,7 +76,7 @@ exports.getMyConnections = async (req, res) => {
         const userId = req.user._id;
         const connections = await Connection.find({
             $or: [{ requester: userId }, { recipient: userId }]
-        }).populate('requester recipient', 'fullName profilePic institution rank');
+        }).populate('requester recipient', 'fullName profilePic reputationPoints institution rank');
         res.json(connections);
     } catch (error) {
         res.status(500).json({ message: error.message });

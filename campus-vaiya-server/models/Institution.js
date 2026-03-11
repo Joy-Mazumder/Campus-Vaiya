@@ -18,9 +18,20 @@ const institutionSchema = new mongoose.Schema({
     image: String 
   }],
 
-  // Verification & Access
+  // --- NEW: Verification & Access ---
   owner: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  isVerified: { type: Boolean, default: false },
+  isVerified: { type: Boolean, default: false }, // আগের কোড ব্রেক না করার জন্য রাখা হলো
+  verificationStatus: { 
+    type: String, 
+    enum: ['Pending', 'Approved', 'Rejected', 'Claimed'], 
+    default: 'Pending' 
+  },
+  verificationDetails: {
+    eiinNumber: { type: String },     // School, College, University এর জন্য
+    licensePdf: { type: String },     // School, College, University এর জন্য
+    ownerIdCard: { type: String }     // Coaching এর জন্য
+  },
+
   isRestricted: { type: Boolean, default: false }, // referral code lagbe ki na
   referralCode: { type: String, unique: true },
 
@@ -32,13 +43,13 @@ const institutionSchema = new mongoose.Schema({
     image: String,
     email: String,
     phone: String,
-    isUser: { type: Boolean, default: false }, // If the teacher is also a user on the platform
+    isUser: { type: Boolean, default: false }, 
     userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
   }],
 
   // Academic Structure
-  departments: [String], // CSE, Physics, Science, Commerce etc.
-  batches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }], // Reference to Batch model
+  departments: [String], 
+  batches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }], 
 
   // Official Contact
   contact: {
@@ -50,7 +61,7 @@ const institutionSchema = new mongoose.Schema({
 
   // Financial Configuration
   billing: {
-    monthlySubscription: { type: Boolean, default: false }, // CampusVaiya service charge
+    monthlySubscription: { type: Boolean, default: false }, 
     studentFeeTracking: { type: Boolean, default: true }
   },
 

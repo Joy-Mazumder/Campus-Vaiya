@@ -6,7 +6,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cron = require('node-cron');
 const connectDB = require('./config/db');
-
+const cloudinary = require('cloudinary').v2;
 // Route Imports
 const authRoutes = require('./routes/authRoutes');
 const toolRoutes = require('./routes/toolRoutes');
