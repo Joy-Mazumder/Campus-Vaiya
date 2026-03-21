@@ -5,6 +5,7 @@ import { Toaster } from 'react-hot-toast';
 // Context Providers
 import { AuthProvider } from './context/AuthContext';
 import { ModeProvider } from './context/ModeContext';
+import { SocketProvider } from './context/SocketContext';
 
 // Components
 import Navbar from './components/Navbar/Navbar';
@@ -19,10 +20,9 @@ import GpaTracker from './pages/Tools/CGPACalculator';
 import SeniorHelp from './pages/SeniorHelp/SeniorHelp';
 import Feed from './pages/Feed/Feed';
 import Messages from './pages/Chat/Messages'; 
-import { SocketProvider } from './context/SocketContext';
+import Library from './pages/Library/Library'; // New Import
 
 // Placeholder Pages
-// const Dashboard = () => <div className="pt-32 text-white text-center text-3xl font-black">Dashboard (Coming Soon)</div>;
 const Home = () => <div className="pt-32 text-white text-center text-3xl font-black">Welcome to CampusVaiya</div>;
 
 function App() {
@@ -49,6 +49,9 @@ function App() {
               <Route path="/Feed" element={<Feed />} />
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:receiverId" element={<Messages />} />
+              
+              {/* New Library Route */}
+              <Route path="/library" element={<Library />} />
 
               {/* Catch all route */}
               <Route path="*" element={<Navigate to="/" />} />
@@ -60,6 +63,5 @@ function App() {
     </AuthProvider>
   );
 }
-// hellow hi bye bye
 
 export default App;

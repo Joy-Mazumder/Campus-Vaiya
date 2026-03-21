@@ -9,33 +9,19 @@ const ClaimRequest = require('../models/ClaimRequest');
 
 exports.createInstitution = async (req, res) => {
   try {
-    const { 
-      name, 
-      type, 
-      referralCode, 
-      isRestricted, 
-      themeColor, 
-      contact, 
-      eiinNumber // ফ্রন্টএন্ড থেকে আসবে
-    } = req.body;
+    const { name, type, email, phone, eiinNumber, isRestricted, themeColor } = req.body;
 
-    // ১. কোচিং সেন্টারের নামের সীমাবদ্ধতা চেক করা
-    if (type === 'Coaching') {
-      const forbiddenWords = ['school', 'college', 'university', 'varsity', 'uni'];
-      const lowerName = name.toLowerCase();
-      const isInvalid = forbiddenWords.some(word => lowerName.includes(word));
-      
-      if (isInvalid) {
-        return res.status(400).json({ 
-          message: "Coaching centers cannot include 'School', 'College', or 'University' in their name." 
-        });
-      }
+    // ১. চেক করা: ইউজার কি ইতিমধ্যে একটি ইন্সটিটিউশন তৈরি করেছে?
+    const existingInstitution = await Institution.findOne({ owner: req.user._id });
+    if (existingInstitution) {
+      return res.status(400).json({ message: "You already have an institution." });
     }
 
-    // ২. ইউনিক স্লাগ (Slug) তৈরি করা
-    const slug = name.toLowerCase().split(' ').join('-') + '-' + Math.floor(100 + Math.random() * 900);
-    
-    // ৩. ভেরিফিকেশন ফাইল হ্যান্ডেল করা (Multer ব্যবহার করলে)
+    // ২. ইউনিক স্লাগ ও রেফারেল কোড (একটু বেশি ইউনিক করা হলো যাতে ডুপ্লিকেট না হয়)
+    const slug = `${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now().toString().slice(-4)}`;
+    const refCode = `CV-${Math.floor(100000 + Math.random() * 900000)}`;
+
+    // ৩. ভেরিফিকেশন ফাইল হ্যান্ডেল করা
     const verificationDetails = {};
     if (type === 'Coaching') {
       verificationDetails.ownerIdCard = req.files?.idCard ? req.files.idCard[0].path : null;
@@ -44,33 +30,47 @@ exports.createInstitution = async (req, res) => {
       verificationDetails.licensePdf = req.files?.license ? req.files.license[0].path : null;
     }
 
-    // ৪. নতুন ইন্সটিটিউশন তৈরি
-    const institution = await Institution.create({
+    // ৪. নতুন ইন্সটিটিউশন তৈরি (Contact অবজেক্টসহ)
+    const institution = new Institution({
       name,
       slug,
       type,
       owner: req.user._id,
-      referralCode: referralCode || `CV-${Math.floor(1000 + Math.random() * 9000)}`,
+      referralCode: refCode,
       isRestricted,
       themeColor: themeColor || '#2563eb',
-      contact,
-      verificationStatus: 'Pending', // অ্যাডমিন চেক করার আগে পেন্ডিং থাকবে
+      contact: { email, phone }, // এখানে অবজেক্ট আকারে পাঠাতে হবে
+      verificationStatus: 'Approved',
       verificationDetails,
-      isVerified: false // শুরুতে ফলস থাকবে
+      isVerified: true
     });
 
-    // ৫. ইউজারের রোল আপডেট (Admin হিসেবে সেট করা)
-    await User.findByIdAndUpdate(req.user._id, {
-      institution: institution._id,
-      institutionRole: 'Admin'
-    });
+    const savedInstitution = await institution.save();
 
-    res.status(201).json({
-      message: "Institution request submitted successfully! Pending verification.",
-      institution
-    });
+    // ৫. ইউজারের রোল আপডেট
+    try {
+        await User.findByIdAndUpdate(req.user._id, {
+            institution: savedInstitution._id,
+            institutionRole: 'Admin'
+        });
+
+        // সাকসেস রেসপন্স
+        return res.status(201).json({
+          message: "Institution created successfully!",
+          institution: savedInstitution
+        });
+
+    } catch (userUpdateError) {
+        // যদি ইউজার আপডেট ফেইল করে, তবে তৈরি করা ইন্সটিটিউশনটি ডিলিট করে দিন (Rollback)
+        await Institution.findByIdAndDelete(savedInstitution._id);
+        return res.status(500).json({ message: "Failed to assign admin role. Try again." });
+    }
 
   } catch (error) {
+    console.error("Create Inst Error:", error);
+    if (error.code === 11000) {
+      return res.status(400).json({ message: "Name or Slug already exists. Try a different name." });
+    }
     res.status(500).json({ message: error.message });
   }
 };
