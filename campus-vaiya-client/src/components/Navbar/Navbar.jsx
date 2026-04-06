@@ -6,7 +6,7 @@ import {
   LogOut, User, BookOpen, MessageSquare, 
   Globe, Building2, Bell, LayoutDashboard, Wrench,
   Search, Command, Zap, Star, Menu, X, ChevronDown, Map,
-  MessageCircle, Users // নতুন আইকন ইমপোর্ট
+  MessageCircle, Users 
 } from "lucide-react";
 
 const Navbar = () => {
@@ -23,9 +23,10 @@ const Navbar = () => {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Modified only the Library path to match our new component
   const navLinks = [
     { name: "Feed", path: "/Feed", icon: <LayoutDashboard size={18} /> },
-    { name: "Library", path: "/resources", icon: <BookOpen size={18} /> },
+    { name: "Library", path: "/library", icon: <BookOpen size={18} /> }, 
     { name: "Seniors", path: "/senior-help", icon: <MessageSquare size={18} /> },
     { name: "Roadmaps", path: "/roadmaps", icon: <Map size={18} /> },
   ];
@@ -44,7 +45,7 @@ const Navbar = () => {
                     <Zap className="text-blue-500 fill-blue-500" size={20} />
                 )}
             </div>
-            <span className="text-white font-black text-lg tracking-tighter hidden lg:block uppercase">
+            <span className="text-white font-black text-lg tracking-tighter hidden lg:block uppercase italic">
               {mode === 'campus' && user?.institution ? user.institution.name : (
                 <>CAMPUS<span className="text-blue-400">VAIYA</span></>
               )}
@@ -67,7 +68,7 @@ const Navbar = () => {
         {/* CENTER: Navigation Links */}
         <div className="hidden md:flex items-center gap-1 bg-slate-950/30 p-1 rounded-2xl border border-slate-800/40">
           {navLinks.map((link) => (
-            <Link key={link.path} to={link.path} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${location.pathname === link.path ? "bg-blue-600/10 text-blue-400 shadow-inner" : "text-slate-400 hover:text-white hover:bg-slate-800/50"}`}>
+            <Link key={link.path} to={link.path} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${location.pathname === link.path ? "bg-blue-600/10 text-blue-400 shadow-inner" : "text-slate-400 hover:text-white hover:bg-slate-800/50"}`}>
               {link.icon} {link.name}
             </Link>
           ))}
@@ -83,14 +84,13 @@ const Navbar = () => {
                   <span className="text-xs font-black tracking-widest">{user.reputationPoints || 0}</span>
               </div>
 
-              {/* Central Messaging & Friends Icon */}
+              {/* Central Messaging */}
               <Link 
                 to="/messages" 
                 className={`relative p-2.5 rounded-full border border-slate-800 transition-all ${location.pathname === '/messages' ? 'bg-blue-600 text-white border-blue-500 shadow-lg shadow-blue-600/20' : 'text-slate-400 hover:text-blue-400 bg-slate-900/50'}`}
                 title="Messages & Connections"
               >
                 <MessageCircle size={20} />
-                {/* নতুন মেসেজ বা ফ্রেন্ড রিকোয়েস্ট থাকলে এই ডটটি দেখাবে */}
                 <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-500 rounded-full ring-2 ring-slate-950 animate-pulse"></span>
               </Link>
 
@@ -108,7 +108,7 @@ const Navbar = () => {
                 <button className="flex items-center gap-2 p-1.5 bg-slate-950 border border-slate-800 rounded-full transition-all group-hover:border-blue-500/50">
                   <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 p-[2px]">
                     <div className="w-full h-full rounded-full bg-slate-950 flex items-center justify-center text-[10px] font-black text-white uppercase overflow-hidden">
-                        {user.profilePic ? <img src={user.profilePic} className="w-full h-full object-cover" alt="avatar" /> : user.fullName.charAt(0)}
+                        {user.profilePic ? <img src={user.profilePic} className="w-full h-full object-cover" alt="avatar" /> : user.fullName?.charAt(0)}
                     </div>
                   </div>
                   <ChevronDown size={14} className="text-slate-500 mr-1 group-hover:rotate-180 transition-transform duration-300" />
@@ -116,18 +116,18 @@ const Navbar = () => {
 
                 {/* Profile Dropdown */}
                 <div className="absolute right-0 mt-3 w-64 bg-slate-950 border border-slate-800 rounded-[28px] shadow-3xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 p-3 z-[110]">
-                   <div className="px-4 py-3 mb-2 border-b border-slate-900">
-                      <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Logged in as</p>
-                      <p className="text-sm font-black text-white truncate">{user.fullName}</p>
-                   </div>
-                   <div className="space-y-1">
-                      <MenuButton to="/profile" icon={<User size={16}/>} label="My Profile" />
-                      <MenuButton to="/dashboard" icon={<LayoutDashboard size={16}/>} label="Personal Dashboard" />
-                      <MenuButton to="/tools" icon={<Wrench size={16}/>} label="Utility Tools" />
-                   </div>
-                   <button onClick={() => {logout(); navigate('/login')}} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-400 hover:bg-red-500/10 rounded-2xl mt-2 transition-all">
-                    <LogOut size={16} /> Logout
-                   </button>
+                    <div className="px-4 py-3 mb-2 border-b border-slate-900">
+                       <p className="text-[10px] text-slate-500 font-black uppercase tracking-[0.2em]">Logged in as</p>
+                       <p className="text-sm font-black text-white truncate">{user.fullName}</p>
+                    </div>
+                    <div className="space-y-1">
+                       <MenuButton to="/profile" icon={<User size={16}/>} label="My Profile" />
+                       <MenuButton to="/dashboard" icon={<LayoutDashboard size={16}/>} label="Personal Dashboard" />
+                       <MenuButton to="/tools" icon={<Wrench size={16}/>} label="Utility Tools" />
+                    </div>
+                    <button onClick={() => {logout(); navigate('/login')}} className="w-full flex items-center gap-3 px-4 py-3 text-sm font-bold text-red-400 hover:bg-red-500/10 rounded-2xl mt-2 transition-all">
+                     <LogOut size={16} /> Logout
+                    </button>
                 </div>
               </div>
 
@@ -149,21 +149,20 @@ const Navbar = () => {
       {isMenuOpen && (
         <div className="md:hidden mt-4 p-4 bg-slate-950 border border-slate-800 rounded-[32px] space-y-3 shadow-2xl animate-in zoom-in-95 duration-300">
           <div className="grid grid-cols-2 gap-2 pb-2">
-             <button onClick={() => toggleMode('global')} className={`flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] font-black tracking-widest ${mode === 'global' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-900 text-slate-500'}`}>
+             <button onClick={() => {toggleMode('global'); setIsMenuOpen(false)}} className={`flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] font-black tracking-widest ${mode === 'global' ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-900 text-slate-500'}`}>
                <Globe size={14}/> GLOBAL
              </button>
-             <button onClick={() => toggleMode('campus')} className={`flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] font-black tracking-widest ${mode === 'campus' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-900 text-slate-500'}`}>
+             <button onClick={() => {toggleMode('campus'); setIsMenuOpen(false)}} className={`flex items-center justify-center gap-2 py-3 rounded-2xl text-[10px] font-black tracking-widest ${mode === 'campus' ? 'bg-blue-600 text-white shadow-lg' : 'bg-slate-900 text-slate-500'}`}>
                <Building2 size={14}/> CAMPUS
              </button>
           </div>
           
-          {/* Mobile Messages Link */}
-          <Link to="/messages" className="flex items-center gap-4 px-5 py-4 rounded-2xl text-blue-400 bg-blue-600/10 border border-blue-500/20 font-bold" onClick={() => setIsMenuOpen(false)}>
+          <Link to="/messages" className="flex items-center gap-4 px-5 py-4 rounded-2xl text-blue-400 bg-blue-600/10 border border-blue-500/20 font-black text-xs uppercase tracking-widest" onClick={() => setIsMenuOpen(false)}>
             <MessageCircle size={20} /> Messages & Connections
           </Link>
 
           {navLinks.map((link) => (
-            <Link key={link.path} to={link.path} className="flex items-center gap-4 px-5 py-4 rounded-2xl text-slate-300 bg-slate-900/50 border border-slate-800/50 font-bold" onClick={() => setIsMenuOpen(false)}>
+            <Link key={link.path} to={link.path} className="flex items-center gap-4 px-5 py-4 rounded-2xl text-slate-300 bg-slate-900/50 border border-slate-800/50 font-black text-xs uppercase tracking-widest hover:text-white transition-all" onClick={() => setIsMenuOpen(false)}>
               {link.icon} {link.name}
             </Link>
           ))}
