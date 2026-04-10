@@ -18,6 +18,7 @@ const userSchema = new mongoose.Schema({
 
   // Institution Connection
   institution: { type: mongoose.Schema.Types.ObjectId, ref: 'Institution' },
+  enrolledCampus: { type: mongoose.Schema.Types.ObjectId, ref: 'Institution' },
   institutionRole: { type: String, enum: ['Student', 'Teacher', 'Admin', 'Guest'], default: 'Guest' },
   studentId: { type: String }, // For result management
   isApproved: { type: Boolean, default: false }, // Referral approval check
