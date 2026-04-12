@@ -5,23 +5,23 @@ const Batch = require('../models/Batch');
 const Post = require('../models/Post');
 const Finance = require('../models/Finance');
 const ClaimRequest = require('../models/ClaimRequest');
+const Result = require('../models/Result');
+const Notification = require('../models/Notification');
+const mongoose = require('mongoose');
 
 
 exports.createInstitution = async (req, res) => {
   try {
     const { name, type, email, phone, eiinNumber, isRestricted, themeColor } = req.body;
 
-    // ১. চেক করা: ইউজার কি ইতিমধ্যে একটি ইন্সটিটিউশন তৈরি করেছে?
     const existingInstitution = await Institution.findOne({ owner: req.user._id });
     if (existingInstitution) {
       return res.status(400).json({ message: "You already have an institution." });
     }
 
-    // ২. ইউনিক স্লাগ ও রেফারেল কোড (একটু বেশি ইউনিক করা হলো যাতে ডুপ্লিকেট না হয়)
     const slug = `${name.toLowerCase().replace(/\s+/g, '-')}-${Date.now().toString().slice(-4)}`;
     const refCode = `CV-${Math.floor(100000 + Math.random() * 900000)}`;
 
-    // ৩. ভেরিফিকেশন ফাইল হ্যান্ডেল করা
     const verificationDetails = {};
     if (type === 'Coaching') {
       verificationDetails.ownerIdCard = req.files?.idCard ? req.files.idCard[0].path : null;
@@ -30,7 +30,6 @@ exports.createInstitution = async (req, res) => {
       verificationDetails.licensePdf = req.files?.license ? req.files.license[0].path : null;
     }
 
-    // ৪. নতুন ইন্সটিটিউশন তৈরি (Contact অবজেক্টসহ)
     const institution = new Institution({
       name,
       slug,
@@ -39,7 +38,7 @@ exports.createInstitution = async (req, res) => {
       referralCode: refCode,
       isRestricted,
       themeColor: themeColor || '#2563eb',
-      contact: { email, phone }, // এখানে অবজেক্ট আকারে পাঠাতে হবে
+      contact: { email, phone },
       verificationStatus: 'Approved',
       verificationDetails,
       isVerified: true
@@ -47,21 +46,18 @@ exports.createInstitution = async (req, res) => {
 
     const savedInstitution = await institution.save();
 
-    // ৫. ইউজারের রোল আপডেট
     try {
         await User.findByIdAndUpdate(req.user._id, {
             institution: savedInstitution._id,
             institutionRole: 'Admin'
         });
 
-        // সাকসেস রেসপন্স
         return res.status(201).json({
           message: "Institution created successfully!",
           institution: savedInstitution
         });
 
     } catch (userUpdateError) {
-        // যদি ইউজার আপডেট ফেইল করে, তবে তৈরি করা ইন্সটিটিউশনটি ডিলিট করে দিন (Rollback)
         await Institution.findByIdAndDelete(savedInstitution._id);
         return res.status(500).json({ message: "Failed to assign admin role. Try again." });
     }
@@ -74,28 +70,24 @@ exports.createInstitution = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-// প্রতিষ্ঠানের নাম সার্চ করার জন্য (Suggestions)
+
 exports.searchInstitutions = async (req, res) => {
   try {
     let { q, type } = req.query;
     if (!q) return res.json([]);
 
-    // ১. সার্চ টার্ম থেকে অতিরিক্ত স্পেস রিমুভ করা
     const searchTerm = q.trim();
-
-    // ২. শক্তিশালী সার্চ প্যাটার্ন তৈরি (এটি শব্দের ক্রমানুসারে না থাকলেও খুঁজে পাবে)
-    // উদাহরণ: "Dhaka University" সার্চ করলে "University of Dhaka" ও খুঁজে পেতে পারে
     const words = searchTerm.split(/\s+/).map(word => `(?=.*${word})`).join("");
-    const regex = new RegExp(words, 'i'); // 'i' ছোট-বড় হাতের অক্ষরের পার্থক্য দূর করে
+    const regex = new RegExp(words, 'i');
 
     const institutions = await Institution.find({
       type: type,
       $or: [
         { name: { $regex: regex } },
-        { slug: { $regex: searchTerm, $options: 'i' } } // স্লাগের সাথেও চেক করবে
+        { slug: { $regex: searchTerm, $options: 'i' } }
       ]
     })
-    .limit(8) // ইউজারের সুবিধার জন্য ৫ এর বদলে ৮টি সাজেশন
+    .limit(8)
     .select('name slug logo');
 
     res.json(institutions);
@@ -103,7 +95,7 @@ exports.searchInstitutions = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-// ১. প্রতিষ্ঠানের ব্যানার ও লোগো আপডেট
+
 exports.updateInstitutionBranding = async (req, res) => {
   try {
     const { themeColor, vision, mission } = req.body;
@@ -121,56 +113,84 @@ exports.updateInstitutionBranding = async (req, res) => {
   } catch (error) { res.status(500).json({ message: error.message }); }
 };
 
-
-
-// --- GET DATA ---
 exports.getNotices = async (req, res) => {
-  const notices = await Notice.find({ institution: req.params.instId }).sort({ createdAt: -1 });
-  res.json(notices);
+  try {
+    const notices = await Notice.find({ institution: req.params.instId }).sort({ createdAt: -1 });
+    res.json(notices);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 exports.getBatches = async (req, res) => {
-  const batches = await Batch.find({ institutionId: req.params.instId });
-  res.json(batches);
+  try {
+    const batches = await Batch.find({ institutionId: req.params.instId });
+    res.json(batches);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 exports.getFinance = async (req, res) => {
-  const finances = await Finance.find({ institutionId: req.params.instId }).sort({ date: -1 });
-  res.json(finances);
+  try {
+    const finances = await Finance.find({ institutionId: req.params.instId }).sort({ date: -1 });
+    res.json(finances);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
-// --- ADD DATA (POST) ---
 exports.createNotice = async (req, res) => {
-  const notice = await Notice.create({ ...req.body, institution: req.body.institutionId });
-  res.status(201).json(notice);
+  try {
+    const notice = await Notice.create({ ...req.body, institution: req.body.institutionId });
+    res.status(201).json(notice);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 exports.addBatch = async (req, res) => {
-  const batch = await Batch.create(req.body);
-  res.status(201).json(batch);
+  try {
+    const batch = await Batch.create(req.body);
+    res.status(201).json(batch);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 exports.addFinance = async (req, res) => {
-  const record = await Finance.create(req.body);
-  res.status(201).json(record);
+  try {
+    const record = await Finance.create(req.body);
+    res.status(201).json(record);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
-// Institution মডেলের ভেতর array-তে ডাটা পুশ করা (Teacher & Achievement)
 exports.addTeacher = async (req, res) => {
-  const inst = await Institution.findById(req.body.institutionId);
-  inst.teachers.push(req.body);
-  await inst.save();
-  res.status(201).json({ message: "Teacher Added" });
+  try {
+    const inst = await Institution.findById(req.body.institutionId);
+    if (!inst) return res.status(404).json({ message: "Institution not found" });
+    inst.teachers.push(req.body);
+    await inst.save();
+    res.status(201).json({ message: "Teacher Added" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 exports.addAchievement = async (req, res) => {
-  const inst = await Institution.findById(req.body.institutionId);
-  inst.achievements.push(req.body);
-  await inst.save();
-  res.status(201).json({ message: "Achievement Added" });
+  try {
+    const inst = await Institution.findById(req.body.institutionId);
+    if (!inst) return res.status(404).json({ message: "Institution not found" });
+    inst.achievements.push(req.body);
+    await inst.save();
+    res.status(201).json({ message: "Achievement Added" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
-// --- DELETE DATA ---
 exports.deleteItem = async (req, res) => {
   const { type, id } = req.params;
   try {
@@ -191,9 +211,7 @@ exports.deleteItem = async (req, res) => {
 
 exports.getMyManagedInstitution = async (req, res) => {
   try {
-    const inst = await Institution.findOne({ owner: req.user._id })
-      .populate('teachers')
-      .populate('achievements');
+    const inst = await Institution.findOne({ owner: req.user._id });
     if (!inst) return res.json(null);
     res.json(inst);
   } catch (error) {
@@ -205,7 +223,6 @@ exports.submitClaim = async (req, res) => {
   try {
     const { institutionId, reason, eiinNumber } = req.body;
 
-    // আগে থেকেই পেন্ডিং কোনো রিকোয়েস্ট আছে কি না চেক করা
     const existing = await ClaimRequest.findOne({ institutionId, claimantId: req.user._id, status: 'Pending' });
     if (existing) return res.status(400).json({ message: "You already have a pending claim for this institution." });
 
@@ -226,30 +243,26 @@ exports.submitClaim = async (req, res) => {
   }
 };
 
-// এডমিন যখন ক্লেইমটি অ্যাপ্রুভ করবে
 exports.approveClaim = async (req, res) => {
   try {
     const { claimId } = req.params;
-    const { action } = req.body; // 'Approve' or 'Reject'
+    const { action } = req.body;
 
     const claim = await ClaimRequest.findById(claimId);
     if (!claim) return res.status(404).json({ message: "Claim not found" });
 
     if (action === 'Approve') {
-      // ১. ইন্সটিটিউশনের ওনার পরিবর্তন করা
       const inst = await Institution.findByIdAndUpdate(claim.institutionId, {
         owner: claim.claimantId,
         isVerified: true,
         verificationStatus: 'Approved'
       });
 
-      // ২. আগের ওনারের রোল রিসেট করা (ঐচ্ছিক কিন্তু নিরাপদ)
       await User.findOneAndUpdate(
         { institution: inst._id, institutionRole: 'Admin' }, 
-        { institutionRole: 'Member' } // আগের এডমিন এখন সাধারণ মেম্বার
+        { institutionRole: 'Member' }
       );
 
-      // ৩. নতুন ওনারের প্রোফাইলে এই ইন্সটিটিউশন সেট করা
       await User.findByIdAndUpdate(claim.claimantId, {
         institution: inst._id,
         institutionRole: 'Admin'
@@ -267,11 +280,10 @@ exports.approveClaim = async (req, res) => {
   }
 };
 
-// স্টুডেন্টের ফি রেকর্ড করা
 exports.collectStudentFee = async (req, res) => {
   try {
     const { studentId, amount, month, batchId, note } = req.body;
-    const instId = req.user.institution; // এডমিনের নিজস্ব ইন্সটিটিউশন
+    const instId = req.user.institution;
 
     const feeRecord = await Finance.create({
       institutionId: instId,
@@ -290,7 +302,6 @@ exports.collectStudentFee = async (req, res) => {
   }
 };
 
-// প্রতিষ্ঠানের খরচ রেকর্ড করা (Salary, Rent, etc.)
 exports.addExpense = async (req, res) => {
   try {
     const { amount, category, note } = req.body;
@@ -309,7 +320,6 @@ exports.addExpense = async (req, res) => {
   }
 };
 
-// ফিনান্সিয়াল সামারি (Dashboard এর জন্য)
 exports.getFinanceSummary = async (req, res) => {
   try {
     const instId = req.params.instId;
@@ -322,14 +332,13 @@ exports.getFinanceSummary = async (req, res) => {
       totalIncome,
       totalExpense,
       balance: totalIncome - totalExpense,
-      history: records.slice(-10) // শেষ ১০টি ট্রানজেকশন
+      history: records.slice(-10)
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 };
 
-// স্টুডেন্ট নিজের ফি এর অবস্থা দেখবে
 exports.getStudentFeeStatus = async (req, res) => {
   try {
     const myFees = await Finance.find({ 
@@ -343,16 +352,11 @@ exports.getStudentFeeStatus = async (req, res) => {
   }
 };
 
-const Result = require('../models/Result');
-const Notification = require('../models/Notification');
-
-// ১. রেজাল্ট পাবলিশ করা (Admin/Teacher Only)
 exports.publishResult = async (req, res) => {
   try {
     const { studentId, batchId, examName, marks, comments } = req.body;
     const instId = req.user.institution;
 
-    // Total marks calculation
     const totalObtained = marks.reduce((sum, item) => sum + item.obtainedMarks, 0);
     const totalPossible = marks.reduce((sum, item) => sum + item.totalMarks, 0);
     const percentage = (totalObtained / totalPossible) * 100;
@@ -369,13 +373,12 @@ exports.publishResult = async (req, res) => {
       publishedBy: req.user._id
     });
 
-    // ২. স্টুডেন্টকে নোটিফিকেশন পাঠানো
     await Notification.create({
       recipient: studentId,
       sender: req.user._id,
       type: 'result_published',
-      message: `${examName} এর রেজাল্ট পাবলিশ হয়েছে। তোমার স্কোর: ${percentage.toFixed(2)}%`,
-      link: `/dashboard/my-results` // Student dashboard link
+      message: `${examName} এর রেজাল্ট পাবলিশ হয়েছে। তোমার স্কোর: ${percentage.toFixed(2)}%`,
+      link: `/dashboard/my-results`
     });
 
     res.status(201).json({ message: "Result published & Student notified!", result });
@@ -384,7 +387,6 @@ exports.publishResult = async (req, res) => {
   }
 };
 
-// ৩. স্টুডেন্ট তার নিজের রেজাল্ট দেখবে (Personal Dashboard View)
 exports.getMyResults = async (req, res) => {
   try {
     const results = await Result.find({ studentId: req.user._id })
@@ -396,13 +398,12 @@ exports.getMyResults = async (req, res) => {
   }
 };
 
-// ৪. ব্যাচ ভিত্তিক রেজাল্ট দেখা (Admin/Institutional View)
 exports.getBatchResults = async (req, res) => {
   try {
     const { batchId } = req.params;
     const results = await Result.find({ batchId })
       .populate('studentId', 'fullName profilePic')
-      .sort({ totalObtained: -1 }); // Rank wise sorting
+      .sort({ totalObtained: -1 });
     res.json(results);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -412,14 +413,13 @@ exports.getBatchResults = async (req, res) => {
 exports.createInstitutionPost = async (req, res) => {
   try {
     const { content, postType, visibility, subject, semester } = req.body;
-    const instId = req.user.institution; // যে এডমিন পোস্ট করছে তার ইন্সটিটিউশন
+    const instId = req.user.institution;
 
     if (!instId) return res.status(403).json({ message: "You don't belong to any institution." });
 
     let mediaUrl = "";
     let fileUrl = "";
 
-    // Multer থেকে ফাইল হ্যান্ডেলিং
     if (req.files) {
       if (req.files.media) mediaUrl = req.files.media[0].path;
       if (req.files.file) fileUrl = req.files.file[0].path;
@@ -431,7 +431,7 @@ exports.createInstitutionPost = async (req, res) => {
       media: mediaUrl,
       file: fileUrl,
       postType: postType || 'Social',
-      visibility: visibility || 'campus', // ডিফল্টভাবে ক্যাম্পাসের জন্য
+      visibility: visibility || 'campus',
       institution: instId,
       subject,
       semester
@@ -443,14 +443,12 @@ exports.createInstitutionPost = async (req, res) => {
   }
 };
 
-// ২. স্টুডেন্ট কর্তৃক তার নিজের ক্যাম্পাসের ফিড দেখা
 exports.getCampusFeed = async (req, res) => {
   try {
-    const instId = req.user.institution; // স্টুডেন্টের ইন্সটিটিউশন
+    const instId = req.user.enrolledCampus || req.user.institution;
 
     if (!instId) return res.status(403).json({ message: "Please join an institution first to see its feed." });
 
-    // শুধু সেই ইন্সটিটিউশনের পোস্ট এবং যেগুলো 'campus' বা 'global' ভিজিবিলিটি আছে
     const posts = await Post.find({ 
       institution: instId,
       visibility: { $in: ['campus', 'global'] }
@@ -459,6 +457,44 @@ exports.getCampusFeed = async (req, res) => {
     .sort({ createdAt: -1 });
 
     res.json(posts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// =====================================================================
+// FIXED: getInstitutionDetails — ObjectId validation + full data return
+// =====================================================================
+exports.getInstitutionDetails = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // ObjectId valid কিনা চেক করা — invalid হলে MongoDB crash করে
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid institution ID" });
+    }
+
+    // সম্পূর্ণ institution data fetch করা
+    // teachers এবং achievements already embedded array, আলাদা populate লাগবে না
+    const institution = await Institution.findById(id).lean();
+
+    if (!institution) {
+      return res.status(404).json({ message: "Institution not found" });
+    }
+
+    res.status(200).json(institution);
+  } catch (error) {
+    console.error("getInstitutionDetails error:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// নির্দিষ্ট institution-এর notices
+exports.getInstitutionNotices = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const notices = await Notice.find({ institution: id }).sort({ createdAt: -1 });
+    res.status(200).json(notices);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -13,7 +13,7 @@ const protect = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     // ইউজার ডেটা ফেচ করা এবং ইন্সটিটিউশন পপুলেট করা
-    req.user = await User.findById(decoded.id).populate('institution');
+    req.user = await User.findById(decoded.id).populate('institution').populate('enrolledCampus');
     
     if (!req.user) {
         return res.status(401).json({ message: "User not found" });

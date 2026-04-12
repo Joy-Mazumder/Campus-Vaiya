@@ -5,7 +5,7 @@ const generateToken = require('../utils/generateToken');
 
 exports.register = async (req, res) => {
   try {
-    const { fullName, email, password, educationLevel, currentClass, referralCode, manualInstitution } = req.body;
+    const { fullName, email, password, educationLevel, currentClass, referralCode, manualInstitution, enrolledCampus } = req.body;
 
     const userExists = await User.findOne({ email });
     if (userExists) return res.status(400).json({ message: "User already exists" });
@@ -54,6 +54,7 @@ exports.register = async (req, res) => {
       currentClass,
       rank: calculatedRank,
       institution: institutionId,
+      enrolledCampus: enrolledCampus || institutionId,
       isApproved,
       institutionRole: institutionId ? 'Student' : 'Guest'
     });
@@ -77,7 +78,7 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
     try {
       const { email, password } = req.body;
-      const user = await User.findOne({ email }).populate('institution');
+      const user = await User.findOne({ email }).populate('institution').populate('enrolledCampus');
   
       if (user && (await bcrypt.compare(password, user.password))) {
         res.json({
@@ -88,6 +89,8 @@ exports.login = async (req, res) => {
           currentClass: user.currentClass,
           rank: user.rank,
           institution: user.institution,
+          enrolledCampus: user.enrolledCampus, 
+          institutionRole: user.institutionRole,
           reputationPoints: user.reputationPoints,
           token: generateToken(user._id),
         });

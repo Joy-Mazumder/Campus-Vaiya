@@ -14,71 +14,93 @@ const Register = () => {
   const [regType, setRegType] = useState('Student');
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false); // Email verification state
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false); 
   
   const [suggestions, setSuggestions] = useState([]); 
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // Student Data state with enrolledCampus
+  // Student Data state
   const [studentData, setStudentData] = useState({
-    fullName: '', email: '', password: '',
-    educationLevel: 'School', currentClass: '', 
-    referralCode: '', manualInstitution: '',
-    enrolledCampus: null // New Field for Institution ID
+    fullName: '', 
+    email: '', 
+    password: '',
+    educationLevel: 'School', 
+    currentClass: '', 
+    referralCode: '', 
+    manualInstitution: '',
+    enrolledCampus: null, // Specific campus field
+    institution: null    // Root institution reference
   });
 
-  // Basic Syntax Validation
   const validateEmailFormat = (email) => {
     return String(email)
       .toLowerCase()
       .match(/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/);
   };
 
-  // Real-world Existence Check (Calling backend or external API)
   const verifyEmailExistence = async (email) => {
-  try {
-    setIsVerifyingEmail(true);
-    const res = await API.post('/auth/check-email', { email }); // GET → POST
-    return res.data.valid; // exists → valid
-  } catch (err) {
-    console.error("Email verification failed", err);
-    return false; // Fallback → false করো, true না
-  } finally {
-    setIsVerifyingEmail(false);
-  }
-};
+    try {
+      setIsVerifyingEmail(true);
+      const res = await API.post('/auth/check-email', { email }); 
+      return res.data.valid; 
+    } catch (err) {
+      console.error("Email verification failed", err);
+      return false; 
+    } finally {
+      setIsVerifyingEmail(false);
+    }
+  };
 
   const handleStudentChange = (e) => {
     const { name, value } = e.target;
-    setStudentData({ ...studentData, [name]: value });
+    
+    setStudentData((prev) => {
+      const newData = { ...prev, [name]: value };
+      
+      // If user types manually, reset institution references.
+      if (name === 'manualInstitution') {
+        newData.enrolledCampus = null;
+        newData.institution = null;
+      }
+      return newData;
+    });
 
     if (name === 'manualInstitution') {
-      if (value.length > 2) fetchSuggestions(value, studentData.educationLevel);
-      else { 
+      if (value.length > 2) {
+        fetchSuggestions(value, studentData.educationLevel);
+      } else { 
         setSuggestions([]); 
         setShowSuggestions(false); 
-        setStudentData(prev => ({ ...prev, enrolledCampus: null }));
       }
     }
   };
 
   const fetchSuggestions = async (query, type) => {
     try {
-      const res = await API.get(`/institution/search?q=${query}&type=${type}`);
+      let searchType = type;
+      if (type === 'Masters' || type === 'PhD') {
+        searchType = 'University';
+      }
+
+      const res = await API.get(`/institution/search?q=${query}&type=${searchType}`);
       setSuggestions(res.data);
       setShowSuggestions(res.data.length > 0);
-    } catch (err) { console.error(err); }
+    } catch (err) { 
+      console.error(err); 
+    }
   };
 
   const handleSelectSuggestion = (inst) => {
-    setStudentData({ 
-        ...studentData, 
+    setStudentData((prev) => ({ 
+        ...prev, 
         manualInstitution: inst.name,
-        enrolledCampus: inst._id // Storing the ID for backend mapping
-    });
+        enrolledCampus: inst._id, // Set the campus ID
+        institution: inst._id      // Set the root institution ID
+    }));
     setShowSuggestions(false);
   };
 
+  // Authority State & Handlers (Unchanged)
   const [authData, setAuthData] = useState({
     adminName: '', adminEmail: '', adminPassword: '',
     instName: '', instType: 'Coaching', contact: '', eiinNumber: ''
@@ -125,7 +147,6 @@ const Register = () => {
         if (!studentData.fullName || !studentData.email || !studentData.password) return toast.error("Please fill all fields");
         if (!validateEmailFormat(studentData.email)) return toast.error("Invalid email format");
         
-        // --- Real World Email Existence Check ---
         const isReal = await verifyEmailExistence(studentData.email);
         if(!isReal) return toast.error("This email does not seem to exist in the real world.");
         
@@ -157,8 +178,8 @@ const Register = () => {
 
     try {
       if (regType === 'Student') {
-        const res = await API.post(`${API_URL}/auth/register`, studentData);
-        toast.success(res.data.message || "Registration Successful!");
+        const res = await API.post(`/auth/register`, studentData);
+        toast.success("Registration Successful!");
         navigate('/login');
       } 
       else {
@@ -168,44 +189,58 @@ const Register = () => {
             return;
         }
 
-        const userRes = await API.post(`${API_URL}/auth/register`, {
+        const userPayload = {
           fullName: authData.adminName,
           email: authData.adminEmail,
           password: authData.adminPassword,
-        });
+          educationLevel: 'University', 
+          currentClass: 16, 
+          institutionRole: 'Admin'
+        };
 
-        const loginRes = await API.post(`${API_URL}/auth/login`, { 
+        await API.post(`/auth/register`, userPayload);
+
+        const loginRes = await API.post(`/auth/login`, { 
           email: authData.adminEmail, 
           password: authData.adminPassword 
         });
+        
         const token = loginRes.data.token;
+        localStorage.setItem('token', token);
 
         const formDataObj = new FormData();
         formDataObj.append('name', authData.instName);
         formDataObj.append('type', authData.instType);
-        formDataObj.append('contact', authData.contact);
+        formDataObj.append('email', authData.adminEmail);
+        formDataObj.append('phone', authData.contact);
         formDataObj.append('eiinNumber', authData.eiinNumber);
         
         if (authDoc) {
-          formDataObj.append('verificationDoc', authDoc);
+          formDataObj.append('license', authDoc);
         }
 
-        const config = { headers: { Authorization: `Bearer ${token}` } };
+        const config = { 
+          headers: { 
+            'Content-Type': 'multipart/form-data',
+            Authorization: `Bearer ${token}` 
+          } 
+        };
 
         if (isClaiming && existingInst) {
           formDataObj.append('institutionId', existingInst._id);
-          formDataObj.append('reason', 'I am the original authority of this institution.');
+          formDataObj.append('reason', 'Original authority claim');
           await API.post('/institution/claim', formDataObj, config);
-          toast.success("Claim request submitted! Admin will verify your documents.");
+          toast.success("Claim request submitted!");
         } else {
           await API.post('/institution/create', formDataObj, config);
-          toast.success("Institution registered! Pending verification.");
+          toast.success("Institution created successfully!");
         }
         
-        navigate('/login');
+        navigate('/dashboard'); 
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || "Operation failed");
+      console.error("Submission Error:", err);
+      toast.error(err.response?.data?.message || "Operation failed.");
     } finally {
       setLoading(false);
     }
@@ -303,12 +338,17 @@ const Register = () => {
                       <InputField icon={<Building2 size={20}/>} name="manualInstitution" placeholder="Search Your Institution" value={studentData.manualInstitution} onChange={handleStudentChange} autoComplete="off" />
                       {showSuggestions && (
                         <div className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl z-50 overflow-hidden max-h-60 overflow-y-auto">
-                          {suggestions.map((inst) => (
-                            <button key={inst.slug} onClick={() => handleSelectSuggestion(inst)} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-blue-600/10 hover:text-blue-400 transition-all text-left">
-                              <Search size={14} className="text-slate-500" /> 
-                              <div>
-                                <p className="font-bold">{inst.name}</p>
-                                <p className="text-[10px] text-slate-500">{inst.type}</p>
+                          {suggestions.map((inst, index) => (
+                            <button 
+                              key={inst._id || index} 
+                              type="button"
+                              onClick={() => handleSelectSuggestion(inst)} 
+                              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-slate-300 hover:bg-blue-600/10 hover:text-blue-400 transition-all text-left"
+                            >
+                              <Search size={14} className="text-slate-500 shrink-0" /> 
+                              <div className="overflow-hidden">
+                                <p className="font-bold truncate">{inst.name}</p>
+                                <p className="text-[10px] text-slate-500">{inst.type || 'Institution'}</p>
                               </div>
                             </button>
                           ))}
@@ -345,7 +385,6 @@ const Register = () => {
                 </div>
               )}
 
-              {/* Step 2 and 3 omitted for brevity, but kept unchanged in logic */}
               {step === 2 && (
                 <div className="space-y-6 animate-in fade-in duration-500">
                   <header><h2 className="text-3xl font-black text-white tracking-tight">Institution Details</h2></header>
