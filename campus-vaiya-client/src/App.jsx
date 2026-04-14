@@ -21,6 +21,7 @@ import SeniorHelp from './pages/SeniorHelp/SeniorHelp';
 import Feed from './pages/Feed/Feed';
 import Messages from './pages/Chat/Messages'; 
 import Library from './pages/Library/Library';
+import ToolsPage from './pages/Tools/Tools';
 
 // Custom CSS for animations and pattern
 const customStyles = `
@@ -186,6 +187,7 @@ function App() {
               <Route path="/messages" element={<Messages />} />
               <Route path="/messages/:receiverId" element={<Messages />} />
               <Route path="/library" element={<Library />} />
+              <Route path="/tools" element={<ToolsPage />} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </div>

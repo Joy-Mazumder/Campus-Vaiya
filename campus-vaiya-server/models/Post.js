@@ -9,8 +9,8 @@ const postSchema = new mongoose.Schema({
   visibility: { type: String, enum: ['global', 'campus', 'friends'], default: 'global' },
   institution: { type: mongoose.Schema.Types.ObjectId, ref: 'Institution' }, // কোন ক্যাম্পাসের পোস্ট
   
-  subject: String,   // শুধু Resource টাইপের জন্য
-  semester: String,  // শুধু Resource টাইপের জন্য
+  subject: String,   
+  semester: String,  
 //   title: { type: String },
   upvotes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   downvotes: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
