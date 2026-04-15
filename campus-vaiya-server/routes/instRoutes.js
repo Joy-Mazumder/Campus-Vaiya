@@ -61,12 +61,14 @@ router.post('/feed/post', protect, instAdminProtect, upload.fields([
     { name: 'media', maxCount: 1 },
     { name: 'file', maxCount: 1 }
 ]), instController.createInstitutionPost);
+router.post('/personality', protect, instAdminProtect, upload.fields([{ name: 'image', maxCount: 1 }]), instController.addPersonality);
 
 // জেনারেল এন্ট্রি
 router.post('/notice', protect, instAdminProtect, instController.createNotice);
 router.post('/batch', protect, instAdminProtect, instController.addBatch);
 router.post('/teacher', protect, instAdminProtect, instController.addTeacher);
 router.post('/achievement', protect, instAdminProtect, instController.addAchievement);
+router.delete('/personality/:id', protect, instAdminProtect, instController.deletePersonality);
 
 // ==========================
 // 5. System Admin Only
@@ -78,6 +80,8 @@ router.put('/claim/approve/:claimId', protect, adminProtect, instController.appr
 // ==========================
 // এই দুটো route /:param pattern, তাই এগুলো সবার নিচে থাকতে হবে
 // নাহলে /search, /details, /my-managed সব কিছু /:instId হিসেবে match করে ফেলে
+router.get('/:instId/personalities', instController.getPersonalities);
+
 router.get('/:instId/notices', instController.getNotices);
 router.get('/:instId/batches', instController.getBatches);
 

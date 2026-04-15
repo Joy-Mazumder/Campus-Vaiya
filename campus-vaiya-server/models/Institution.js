@@ -50,7 +50,12 @@ const institutionSchema = new mongoose.Schema({
   // Academic Structure
   departments: [String], 
   batches: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Batch' }], 
-
+  history: { type: String, default: '' },
+  alumniHistory: { type: String, default: '' },
+  admissionInfo: { type: String, default: '' },
+  foundedYear: { type: String, default: '' },
+  studentLife: { type: String, default: '' },
+  research: { type: String, default: '' },
   // Official Contact
   contact: {
     email: String,

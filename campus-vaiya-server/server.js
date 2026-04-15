@@ -1,4 +1,4 @@
-// server.js (Sync and Optimized)
+//
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -7,7 +7,7 @@ const { Server } = require('socket.io');
 const cron = require('node-cron');
 const connectDB = require('./config/db');
 const cloudinary = require('cloudinary').v2;
-// Route Imports
+// 
 const authRoutes = require('./routes/authRoutes');
 const toolRoutes = require('./routes/toolRoutes');
 const instRoutes = require('./routes/instRoutes');
@@ -16,6 +16,7 @@ const socialRoutes = require('./routes/socialRoutes');
 const commentRoutes = require('./routes/commentRoutes');
 const helpRoutes = require('./routes/helpRoutes');
 const messageRoutes = require('./routes/messageRoutes');
+const studentRoutes = require('./routes/studentToolsRoutes');
 
 // Models
 const User = require('./models/User'); 
@@ -47,7 +48,8 @@ app.use('/api/institution', instRoutes);
 app.use('/api/social', socialRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/help', helpRoutes); 
-app.use('/api/messages', messageRoutes); // Properly integrated
+app.use('/api/messages', messageRoutes); 
+app.use('/api/student-tools', studentRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {

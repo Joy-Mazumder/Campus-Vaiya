@@ -19,9 +19,18 @@ import AiRoadmap from './pages/Tools/AiRoadmap';
 import GpaTracker from './pages/Tools/CGPACalculator';
 import SeniorHelp from './pages/SeniorHelp/SeniorHelp';
 import Feed from './pages/Feed/Feed';
-import Messages from './pages/Chat/Messages'; 
+import Messages from './pages/Chat/Messages';
 import Library from './pages/Library/Library';
 import ToolsPage from './pages/Tools/Tools';
+import MathSolver from './pages/Tools/MathSolver';
+import ScienceExplainer from './pages/Tools/ScienceExplainer';
+import EnglishGrammar from './pages/Tools/EnglishGrammar';
+import HandwrittenNotes from './pages/Tools/HandwrittenNotes';
+import ErDiagram from './pages/Tools/ErDiagram';
+import ResearchSummarizer from './pages/Tools/ResearchSummarizer';
+import PlagiarismChecker from './pages/Tools/PlagiarismChecker';
+import LiteratureReview from './pages/Tools/LiteratureReview';
+import ResearchGapFinder from './pages/Tools/ResearchGapFinder';
 
 // Custom CSS for animations and pattern
 const customStyles = `
@@ -44,10 +53,10 @@ const Home = () => (
   <>
     <style>{customStyles}</style>
     <div className="relative pt-20 pb-28 px-4 sm:px-6 lg:px-8 min-h-screen flex flex-col items-center overflow-hidden bg-grid-pattern">
-      
+
       {/* Background Ambient Glow Effects */}
       <div className="absolute top-[-10%] left-[10%] w-[500px] h-[500px] bg-blue-600/15 rounded-full blur-[130px] pointer-events-none anim-float-amb"></div>
-      <div className="absolute bottom-[-10%] right-[10%] w-[500px] h-[500px] bg-purple-600/15 rounded-full blur-[130px] pointer-events-none anim-float-amb" style={{animationDelay: '2s'}}></div>
+      <div className="absolute bottom-[-10%] right-[10%] w-[500px] h-[500px] bg-purple-600/15 rounded-full blur-[130px] pointer-events-none anim-float-amb" style={{ animationDelay: '2s' }}></div>
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[900px] h-[400px] bg-emerald-500/10 rounded-[100%] blur-[160px] pointer-events-none"></div>
 
       {/* Hero Icon Overlay */}
@@ -58,24 +67,24 @@ const Home = () => (
       <div className="relative z-10 max-w-7xl mx-auto w-full">
         {/* Hero Section */}
         <div className="text-center space-y-10 mt-10">
-          <div className="inline-block mb-4 px-6 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-xl shadow-inner anim-fade-up-hero" style={{animationDelay: '0.1s'}}>
+          <div className="inline-block mb-4 px-6 py-2 rounded-full border border-white/10 bg-white/5 backdrop-blur-xl shadow-inner anim-fade-up-hero" style={{ animationDelay: '0.1s' }}>
             <span className="flex items-center gap-2.5 text-xs font-semibold text-blue-300 tracking-[0.2em] uppercase">
               🚀 The future of campus life is here
             </span>
           </div>
-          
-          <h1 className="text-5xl md:text-8xl font-black text-white tracking-tight leading-[0.95] anim-fade-up-hero" style={{animationDelay: '0.2s'}}>
+
+          <h1 className="text-5xl md:text-8xl font-black text-white tracking-tight leading-[0.95] anim-fade-up-hero" style={{ animationDelay: '0.2s' }}>
             Level up your campus life with <br className="hidden md:block" />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 drop-shadow-sm shimmer-text">
               CampusVaiya
             </span>
           </h1>
-          
-          <p className="text-lg md:text-2xl text-slate-400 max-w-3xl mx-auto font-light leading-relaxed anim-fade-up-hero" style={{animationDelay: '0.3s'}}>
+
+          <p className="text-lg md:text-2xl text-slate-400 max-w-3xl mx-auto font-light leading-relaxed anim-fade-up-hero" style={{ animationDelay: '0.3s' }}>
             Your digital campus ecosystem. Connect with seniors, automate your lab reports, track CGPA, and unlock AI-driven academic roadmaps in one place.
           </p>
-          
-          <div className="flex flex-col sm:flex-row justify-center gap-6 pt-10 anim-fade-up-hero" style={{animationDelay: '0.4s'}}>
+
+          <div className="flex flex-col sm:flex-row justify-center gap-6 pt-10 anim-fade-up-hero" style={{ animationDelay: '0.4s' }}>
             <Link to="/register" className="group relative px-9 py-4 bg-gradient-to-r from-blue-600 via-blue-700 to-cyan-500 text-white rounded-full font-bold text-lg transition-all duration-300 hover:scale-105 overflow-hidden anim-cta-pulse">
               <span className="relative z-10 flex items-center justify-center gap-2">
                 Join the Community
@@ -89,7 +98,7 @@ const Home = () => (
         </div>
 
         {/* 📊 NEW COMPONENT: Live Statistics Bar */}
-        <div className="mt-24 grid grid-cols-2 md:grid-cols-4 gap-4 anim-fade-up-hero" style={{animationDelay: '0.5s'}}>
+        <div className="mt-24 grid grid-cols-2 md:grid-cols-4 gap-4 anim-fade-up-hero" style={{ animationDelay: '0.5s' }}>
           {[
             { label: 'Active Students', value: '10K+' },
             { label: 'Lab Reports Gen', value: '50K+' },
@@ -106,7 +115,7 @@ const Home = () => (
         {/* Feature Cards */}
         <div className="mt-32 grid grid-cols-1 md:grid-cols-3 gap-8">
           {/* Card 1 */}
-          <div className="relative group bg-slate-900/40 backdrop-blur-2xl p-9 rounded-3xl border border-white/10 hover:border-cyan-500/50 transition-all duration-500 hover:-translate-y-3 overflow-hidden shadow-2xl anim-fade-up-cards" style={{animationDelay: '0.6s'}}>
+          <div className="relative group bg-slate-900/40 backdrop-blur-2xl p-9 rounded-3xl border border-white/10 hover:border-cyan-500/50 transition-all duration-500 hover:-translate-y-3 overflow-hidden shadow-2xl anim-fade-up-cards" style={{ animationDelay: '0.6s' }}>
             <div className="absolute top-0 left-1/4 right-1/4 h-[2px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
             <div className="relative z-10">
               <div className="w-16 h-16 bg-cyan-500/20 rounded-2xl flex items-center justify-center mb-8 border border-cyan-500/30 group-hover:rotate-[360deg] transition-transform duration-700">
@@ -118,9 +127,9 @@ const Home = () => (
               </p>
             </div>
           </div>
-          
+
           {/* Card 2 */}
-          <div className="relative group bg-slate-900/40 backdrop-blur-2xl p-9 rounded-3xl border border-white/10 hover:border-purple-500/50 transition-all duration-500 hover:-translate-y-3 overflow-hidden shadow-2xl anim-fade-up-cards" style={{animationDelay: '0.7s'}}>
+          <div className="relative group bg-slate-900/40 backdrop-blur-2xl p-9 rounded-3xl border border-white/10 hover:border-purple-500/50 transition-all duration-500 hover:-translate-y-3 overflow-hidden shadow-2xl anim-fade-up-cards" style={{ animationDelay: '0.7s' }}>
             <div className="absolute top-0 left-1/4 right-1/4 h-[2px] bg-gradient-to-r from-transparent via-purple-500 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
             <div className="relative z-10">
               <div className="w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center mb-8 border border-purple-500/30 group-hover:rotate-[360deg] transition-transform duration-700">
@@ -134,7 +143,7 @@ const Home = () => (
           </div>
 
           {/* Card 3 */}
-          <div className="relative group bg-slate-900/40 backdrop-blur-2xl p-9 rounded-3xl border border-white/10 hover:border-emerald-500/50 transition-all duration-500 hover:-translate-y-3 overflow-hidden shadow-2xl anim-fade-up-cards" style={{animationDelay: '0.8s'}}>
+          <div className="relative group bg-slate-900/40 backdrop-blur-2xl p-9 rounded-3xl border border-white/10 hover:border-emerald-500/50 transition-all duration-500 hover:-translate-y-3 overflow-hidden shadow-2xl anim-fade-up-cards" style={{ animationDelay: '0.8s' }}>
             <div className="absolute top-0 left-1/4 right-1/4 h-[2px] bg-gradient-to-r from-transparent via-emerald-500 to-transparent scale-x-0 group-hover:scale-x-100 transition-transform duration-500"></div>
             <div className="relative z-10">
               <div className="w-16 h-16 bg-emerald-500/20 rounded-2xl flex items-center justify-center mb-8 border border-emerald-500/30 group-hover:rotate-[360deg] transition-transform duration-700">
@@ -150,12 +159,12 @@ const Home = () => (
 
         {/* 🌟 NEW COMPONENT: Bottom Interactive Banner */}
         <div className="mt-40 p-12 rounded-[40px] bg-gradient-to-br from-blue-600 to-purple-700 text-center relative overflow-hidden anim-fade-up-hero">
-           <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
-           <h2 className="text-3xl md:text-5xl font-black text-white mb-6 relative z-10">Ready to transform your academic journey?</h2>
-           <p className="text-blue-100 mb-10 text-lg md:text-xl max-w-2xl mx-auto relative z-10">Join thousands of students who are already using CampusVaiya to simplify their university life.</p>
-           <Link to="/register" className="inline-block px-12 py-5 bg-white text-blue-600 rounded-full font-black text-xl hover:bg-blue-50 transition-colors shadow-2xl relative z-10">
-             Get Started Now — It's Free
-           </Link>
+          <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]"></div>
+          <h2 className="text-3xl md:text-5xl font-black text-white mb-6 relative z-10">Ready to transform your academic journey?</h2>
+          <p className="text-blue-100 mb-10 text-lg md:text-xl max-w-2xl mx-auto relative z-10">Join thousands of students who are already using CampusVaiya to simplify their university life.</p>
+          <Link to="/register" className="inline-block px-12 py-5 bg-white text-blue-600 rounded-full font-black text-xl hover:bg-blue-50 transition-colors shadow-2xl relative z-10">
+            Get Started Now — It's Free
+          </Link>
         </div>
       </div>
     </div>
@@ -165,34 +174,43 @@ const Home = () => (
 function App() {
   return (
     <AuthProvider>
-      <SocketProvider> 
+      <SocketProvider>
         <ModeProvider>
-        <Router>
-          <div className="min-h-screen bg-slate-950 selection:bg-cyan-500/30">
-            <Navbar />
-            <Toaster position="top-center" reverseOrder={false} />
-            
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/create-institution" element={<CreateInstitution />} />
-              <Route path="/profile" element={<MyProfile />} />
-              <Route path="/tools/cgpa" element={<GpaTracker />} />
-              <Route path="/tools/lab-gen" element={<LabReportGen />} />
-              <Route path="/roadmaps" element={<AiRoadmap />} />
-              <Route path="/senior-help" element={<SeniorHelp />} />
-              <Route path="/Feed" element={<Feed />} />
-              <Route path="/messages" element={<Messages />} />
-              <Route path="/messages/:receiverId" element={<Messages />} />
-              <Route path="/library" element={<Library />} />
-              <Route path="/tools" element={<ToolsPage />} />
-              <Route path="*" element={<Navigate to="/" />} />
-            </Routes>
-          </div>
-        </Router>
-      </ModeProvider>
+          <Router>
+            <div className="min-h-screen bg-slate-950 selection:bg-cyan-500/30">
+              <Navbar />
+              <Toaster position="top-center" reverseOrder={false} />
+
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/register" element={<Register />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/create-institution" element={<CreateInstitution />} />
+                <Route path="/profile" element={<MyProfile />} />
+                <Route path="/tools/cgpa" element={<GpaTracker />} />
+                <Route path="/tools/lab-gen" element={<LabReportGen />} />
+                <Route path="/roadmaps" element={<AiRoadmap />} />
+                <Route path="/senior-help" element={<SeniorHelp />} />
+                <Route path="/Feed" element={<Feed />} />
+                <Route path="/messages" element={<Messages />} />
+                <Route path="/messages/:receiverId" element={<Messages />} />
+                <Route path="/library" element={<Library />} />
+                <Route path="/tools" element={<ToolsPage />} />
+                <Route path="/tools/math-solver" element={<MathSolver />} />
+                <Route path="/tools/science-explainer" element={<ScienceExplainer />} />
+                <Route path="/tools/english-grammar" element={<EnglishGrammar />} />
+                <Route path="/tools/notes-digitizer" element={<HandwrittenNotes />} />
+                <Route path="/tools/er-diagram" element={<ErDiagram />} />
+                <Route path="/tools/research-summarizer" element={<ResearchSummarizer />} />
+                <Route path="/tools/plagiarism-checker" element={<PlagiarismChecker />} />
+                <Route path="/tools/literature-review" element={<LiteratureReview />} />
+                <Route path="/tools/research-gap-finder" element={<ResearchGapFinder />} />
+                <Route path="*" element={<Navigate to="/" />} />
+              </Routes>
+            </div>
+          </Router>
+        </ModeProvider>
       </SocketProvider>
     </AuthProvider>
   );

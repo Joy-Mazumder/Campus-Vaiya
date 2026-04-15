@@ -7,6 +7,7 @@ const Finance = require('../models/Finance');
 const ClaimRequest = require('../models/ClaimRequest');
 const Result = require('../models/Result');
 const Notification = require('../models/Notification');
+const NotablePersonality = require('../models/NotablePersonality');
 const mongoose = require('mongoose');
 
 
@@ -98,9 +99,8 @@ exports.searchInstitutions = async (req, res) => {
 
 exports.updateInstitutionBranding = async (req, res) => {
   try {
-    const { themeColor, vision, mission } = req.body;
-    const updateData = { themeColor, vision, mission };
-
+    const { themeColor, vision, mission, history, alumniHistory, admissionInfo, foundedYear, studentLife, research } = req.body;
+    const updateData = { themeColor, vision, mission, history, alumniHistory, admissionInfo, foundedYear, studentLife, research };
     if (req.files?.logo) updateData.logo = req.files.logo[0].path;
     if (req.files?.banner) updateData.banner = req.files.banner[0].path;
 
@@ -497,5 +497,57 @@ exports.getInstitutionNotices = async (req, res) => {
     res.status(200).json(notices);
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+
+exports.addPersonality = async (req, res) => {
+  try {
+    const { name, title, quote, category, yearOfGraduation } = req.body;
+    const instId = req.user.institution;
+
+    if (!instId) return res.status(403).json({ message: 'Not an institution admin.' });
+
+    // Image comes from file upload (req.files) or URL string fallback
+    let image = '';
+    if (req.files?.image && req.files.image[0]) {
+      image = req.files.image[0].path;
+    } else if (req.body.imageUrl) {
+      image = req.body.imageUrl;
+    }
+
+    const personality = await NotablePersonality.create({
+      institution: instId,
+      name,
+      title: title || '',
+      quote,
+      category: category || 'Other',
+      yearOfGraduation: yearOfGraduation || '',
+      image
+    });
+
+    res.status(201).json(personality);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// GET Notable Personalities for an institution (Public)
+exports.getPersonalities = async (req, res) => {
+  try {
+    const personalities = await NotablePersonality.find({ institution: req.params.instId })
+      .sort({ order: 1, createdAt: -1 });
+    res.json(personalities);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// DELETE a personality (Admin only)
+exports.deletePersonality = async (req, res) => {
+  try {
+    await NotablePersonality.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 };
