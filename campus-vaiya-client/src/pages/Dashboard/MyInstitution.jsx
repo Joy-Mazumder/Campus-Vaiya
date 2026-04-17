@@ -5,7 +5,8 @@ import {
   Send, DollarSign, X, Sparkles, CheckCircle, FileText,
   TrendingUp, Settings, ChevronRight, Zap, ArrowUpRight,
   LayoutGrid, GraduationCap, Wallet, Megaphone, Quote,
-  History, Info, Star, Layers, FlaskConical, Heart, Upload
+  History, Info, Star, Layers, FlaskConical, Heart, Upload,
+  BookMarked, Trash2, Plus, ChevronDown
 } from 'lucide-react';
 import API from '../../services/api';
 import toast from 'react-hot-toast';
@@ -66,6 +67,15 @@ const MyInstitution = () => {
   const [finances, setFinances] = useState([]);
   const [personalities, setPersonalities] = useState([]);
 
+  /* ── Department management state ── */
+  const [departments, setDepartments] = useState([]);
+  const [expandedAdminDept, setExpandedAdminDept] = useState(null);
+  const [showDeptForm, setShowDeptForm] = useState(false);
+  const [deptForm, setDeptForm] = useState({ name: '', description: '', established: '' });
+  const [deptLoading, setDeptLoading] = useState(false);
+  const [showSubForms, setShowSubForms] = useState({});
+  const [subForms, setSubForms] = useState({});
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalType, setModalType] = useState('');
   const [formData, setFormData] = useState({});
@@ -82,6 +92,7 @@ const MyInstitution = () => {
     try {
       const instRes = await API.get(`${API_URL}/institution/my-managed`);
       setInstData(instRes.data);
+      setDepartments(instRes.data?.departments || []);
 
       const [nRes, bRes, fRes, pRes] = await Promise.all([
         API.get(`${API_URL}/institution/${instId}/notices`).catch(() => ({ data: [] })),
@@ -96,6 +107,68 @@ const MyInstitution = () => {
       setPersonalities(pRes.data || []);
     } catch (err) {
       console.error('Dashboard Fetch Error', err);
+    }
+  };
+
+  /* ── Department API handlers ── */
+  const handleAddDepartment = async (e) => {
+    e.preventDefault();
+    if (!deptForm.name.trim()) return;
+    setDeptLoading(true);
+    try {
+      const res = await API.post('/institution/departments', deptForm);
+      setDepartments(prev => [...prev, res.data]);
+      setDeptForm({ name: '', description: '', established: '' });
+      setShowDeptForm(false);
+      toast.success('Department added!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add department.');
+    } finally {
+      setDeptLoading(false);
+    }
+  };
+
+  const handleDeleteDepartment = async (deptId) => {
+    if (!window.confirm('Delete this department and all its sections?')) return;
+    try {
+      await API.delete(`/institution/departments/${deptId}`);
+      setDepartments(prev => prev.filter(d => d._id !== deptId));
+      toast.success('Department deleted.');
+    } catch (err) {
+      toast.error('Failed to delete department.');
+    }
+  };
+
+  const handleAddSubcategory = async (e, deptId) => {
+    e.preventDefault();
+    const form = subForms[deptId] || {};
+    if (!form.title?.trim()) return;
+    setDeptLoading(true);
+    try {
+      const res = await API.post(`/institution/departments/${deptId}/subcategories`, form);
+      setDepartments(prev => prev.map(d => d._id === deptId ? res.data : d));
+      setSubForms(prev => ({ ...prev, [deptId]: { title: '', content: '' } }));
+      setShowSubForms(prev => ({ ...prev, [deptId]: false }));
+      toast.success('Section added!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add section.');
+    } finally {
+      setDeptLoading(false);
+    }
+  };
+
+  const handleDeleteSubcategory = async (deptId, subId) => {
+    try {
+      await API.delete(`/institution/departments/${deptId}/subcategories/${subId}`);
+      setDepartments(prev =>
+        prev.map(d => d._id === deptId
+          ? { ...d, subcategories: d.subcategories.filter(s => s._id !== subId) }
+          : d
+        )
+      );
+      toast.success('Section removed.');
+    } catch (err) {
+      toast.error('Failed to remove section.');
     }
   };
 
@@ -311,13 +384,14 @@ const MyInstitution = () => {
   /* VIEW: ADMIN DASHBOARD                                         */
   /* ============================================================ */
   const tabs = [
-    { id: 'overview',        label: 'Overview',       icon: <LayoutGrid size={13} /> },
-    { id: 'settings',        label: 'Settings',       icon: <Settings size={13} /> },
-    { id: 'faculty',         label: 'Faculty',        icon: <Users size={13} /> },
-    { id: 'batches',         label: 'Batches',        icon: <GraduationCap size={13} /> },
-    { id: 'finance',         label: 'Finance',        icon: <Wallet size={13} /> },
-    { id: 'notices',         label: 'Notices',        icon: <Megaphone size={13} /> },
-    { id: 'personalities',   label: 'Authorities',    icon: <Quote size={13} /> },
+    { id: 'overview',      label: 'Overview',     icon: <LayoutGrid size={13} /> },
+    { id: 'settings',      label: 'Settings',     icon: <Settings size={13} /> },
+    { id: 'departments',   label: 'Departments',  icon: <Layers size={13} /> },
+    { id: 'faculty',       label: 'Faculty',      icon: <Users size={13} /> },
+    { id: 'batches',       label: 'Batches',      icon: <GraduationCap size={13} /> },
+    { id: 'finance',       label: 'Finance',      icon: <Wallet size={13} /> },
+    { id: 'notices',       label: 'Notices',      icon: <Megaphone size={13} /> },
+    { id: 'personalities', label: 'Authorities',  icon: <Quote size={13} /> },
   ];
 
   const actions = [
@@ -329,6 +403,8 @@ const MyInstitution = () => {
     { type: 'achievement', label: 'Achievement',        icon: <Trophy size={15} />,      accent: '#f59e0b' },
     { type: 'personality', label: 'Add Authority',      icon: <Quote size={15} />,       accent: '#a855f7' },
   ];
+
+  const DEPT_COLORS = ['#818cf8','#f472b6','#38bdf8','#34d399','#fbbf24','#c084fc','#f87171','#22d3ee'];
 
   return (
     <div className="w-full space-y-5">
@@ -367,10 +443,11 @@ const MyInstitution = () => {
 
           <div className="flex items-center gap-2 flex-wrap">
             {[
-              { label: 'Faculty',        value: instData?.teachers?.length || 0, color: '#6366f1' },
-              { label: 'Batches',        value: batches.length,                  color: '#a855f7' },
-              { label: 'Notices',        value: notices.length,                  color: '#0ea5e9' },
-              { label: 'Authorities',    value: personalities.length,            color: '#ec4899' },
+              { label: 'Faculty',     value: instData?.teachers?.length || 0, color: '#6366f1' },
+              { label: 'Batches',     value: batches.length,                  color: '#a855f7' },
+              { label: 'Notices',     value: notices.length,                  color: '#0ea5e9' },
+              { label: 'Departments', value: departments.length,              color: '#34d399' },
+              { label: 'Authorities', value: personalities.length,            color: '#ec4899' },
             ].map((s, i) => (
               <div key={i} className="text-center px-4 py-2.5 rounded-2xl border border-white/[0.06]"
                 style={{ background: 'rgba(255,255,255,0.025)' }}>
@@ -540,6 +617,248 @@ const MyInstitution = () => {
                     : <><CheckCircle size={14} /> Save All Settings</>}
                 </button>
               </form>
+            )}
+
+            {/* ══════════════════════════════════════════════════════════ */}
+            {/* ── DEPARTMENTS TAB (ADMIN MANAGEMENT)                   ── */}
+            {/* ══════════════════════════════════════════════════════════ */}
+            {activeTab === 'departments' && (
+              <div className="animate-in fade-in duration-300 space-y-5">
+
+                {/* Header row */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-widest">Departments</h3>
+                    <p className="text-[10px] text-slate-600 font-bold mt-0.5">
+                      Manage academic departments and their subcategories
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowDeptForm(v => !v)}
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all hover:scale-105"
+                    style={{ background: `linear-gradient(135deg,${accent},#4f46e5)`, boxShadow: `0 4px 16px ${accent}40` }}>
+                    <Plus size={13} /> Add Department
+                  </button>
+                </div>
+
+                {/* Add Department Form */}
+                {showDeptForm && (
+                  <div className="relative overflow-hidden rounded-2xl border border-white/[0.08] p-5 animate-in fade-in slide-in-from-top-2 duration-200"
+                    style={{ background: 'linear-gradient(135deg,#0d1829,#0a0f1e)' }}>
+                    <div className="absolute top-0 left-0 right-0 h-px"
+                      style={{ background: `linear-gradient(90deg,transparent,${accent}80,transparent)` }} />
+                    <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">New Department</p>
+                    <form onSubmit={handleAddDepartment} className="space-y-3">
+                      <div className="grid md:grid-cols-2 gap-3">
+                        <input
+                          className="inst-input"
+                          placeholder="Department Name *"
+                          value={deptForm.name}
+                          onChange={e => setDeptForm(p => ({ ...p, name: e.target.value }))}
+                          required
+                        />
+                        <input
+                          className="inst-input"
+                          placeholder="Established Year (e.g. 2005)"
+                          value={deptForm.established}
+                          onChange={e => setDeptForm(p => ({ ...p, established: e.target.value }))}
+                        />
+                      </div>
+                      <textarea
+                        className="inst-input"
+                        placeholder="Department description (introduction shown when clicked)..."
+                        value={deptForm.description}
+                        onChange={e => setDeptForm(p => ({ ...p, description: e.target.value }))}
+                        style={{ minHeight: '80px', resize: 'vertical' }}
+                      />
+                      <div className="flex gap-3">
+                        <button type="submit" disabled={deptLoading}
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-white transition-all"
+                          style={{ background: `linear-gradient(135deg,${accent},#4f46e5)`, boxShadow: `0 4px 16px ${accent}35` }}>
+                          {deptLoading ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle size={12} />}
+                          Save Department
+                        </button>
+                        <button type="button" onClick={() => setShowDeptForm(false)}
+                          className="px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 border border-white/[0.08] hover:text-white transition-all">
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+
+                {/* Department list */}
+                <div className="space-y-3">
+                  {departments.map((dept, i) => {
+                    const col = DEPT_COLORS[i % DEPT_COLORS.length];
+                    const isOpen = expandedAdminDept === dept._id;
+
+                    return (
+                      <div key={dept._id}
+                        className="relative overflow-hidden rounded-2xl border transition-all duration-300"
+                        style={{
+                          background: isOpen
+                            ? `linear-gradient(135deg,${col}0e,#0d1829 60%,#0a0f1e)`
+                            : 'linear-gradient(135deg,#0d1829,#0a0f1e)',
+                          borderColor: isOpen ? col + '50' : col + '22',
+                          boxShadow: isOpen ? `0 6px 36px ${col}14` : 'none',
+                        }}>
+
+                        {/* Top glow line */}
+                        <div className="absolute top-0 left-0 right-0 h-px pointer-events-none"
+                          style={{ background: `linear-gradient(to right,transparent,${col}${isOpen ? 'aa' : '40'},transparent)` }} />
+
+                        {/* Ambient glow */}
+                        <div className="absolute top-0 right-0 w-48 h-48 rounded-full blur-[100px] pointer-events-none transition-all"
+                          style={{ background: col, opacity: isOpen ? 0.12 : 0.06 }} />
+
+                        {/* Department header */}
+                        <div className="relative z-10 flex items-center gap-3 p-4">
+                          {/* Icon */}
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ background: col + '18', color: col, border: `1px solid ${col}28` }}>
+                            <BookMarked size={17} />
+                          </div>
+
+                          {/* Name + established */}
+                          <button
+                            className="flex-1 text-left min-w-0"
+                            onClick={() => setExpandedAdminDept(isOpen ? null : dept._id)}>
+                            <h4 className="font-black text-white text-sm leading-tight">{dept.name}</h4>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              {dept.established && (
+                                <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: col + '99' }}>
+                                  Est. {dept.established}
+                                </span>
+                              )}
+                              <span className="text-[9px] text-slate-600 font-bold">
+                                {dept.subcategories?.length || 0} sections
+                              </span>
+                            </div>
+                          </button>
+
+                          {/* Actions */}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <button
+                              onClick={() => setShowSubForms(prev => ({
+                                ...prev,
+                                [dept._id]: !prev[dept._id]
+                              }))}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all hover:scale-105"
+                              style={{ background: col + '18', color: col, border: `1px solid ${col}28` }}>
+                              <Plus size={10} /> Section
+                            </button>
+                            <button
+                              onClick={() => handleDeleteDepartment(dept._id)}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center bg-red-500/10 hover:bg-red-500/25 text-red-400 transition-all border border-red-500/15">
+                              <Trash2 size={11} />
+                            </button>
+                            <button
+                              onClick={() => setExpandedAdminDept(isOpen ? null : dept._id)}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                              style={{ color: isOpen ? col : '#475569' }}>
+                              <ChevronDown size={14} style={{ transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.3s' }} />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Expanded content */}
+                        {isOpen && (
+                          <div className="relative z-10 px-4 pb-5 space-y-3 animate-in fade-in duration-200">
+                            <div className="h-px" style={{ background: `linear-gradient(to right,${col}30,transparent 70%)` }} />
+
+                            {/* Description preview */}
+                            {dept.description && (
+                              <p className="text-slate-400 text-xs leading-relaxed px-1 border-l-2 pl-3"
+                                style={{ borderColor: col + '55' }}>
+                                {dept.description}
+                              </p>
+                            )}
+
+                            {/* Add subcategory form */}
+                            {showSubForms[dept._id] && (
+                              <div className="rounded-xl border border-white/[0.07] p-4 space-y-2.5 animate-in fade-in duration-150"
+                                style={{ background: 'rgba(0,0,0,0.25)' }}>
+                                <p className="text-[9px] font-black text-slate-600 uppercase tracking-widest">New Section</p>
+                                <form onSubmit={e => handleAddSubcategory(e, dept._id)} className="space-y-2.5">
+                                  <input
+                                    className="inst-input"
+                                    placeholder="Section title *"
+                                    value={subForms[dept._id]?.title || ''}
+                                    onChange={e => setSubForms(prev => ({
+                                      ...prev,
+                                      [dept._id]: { ...prev[dept._id], title: e.target.value }
+                                    }))}
+                                    required
+                                  />
+                                  <textarea
+                                    className="inst-input"
+                                    placeholder="Section content / data..."
+                                    value={subForms[dept._id]?.content || ''}
+                                    onChange={e => setSubForms(prev => ({
+                                      ...prev,
+                                      [dept._id]: { ...prev[dept._id], content: e.target.value }
+                                    }))}
+                                    style={{ minHeight: '70px', resize: 'vertical' }}
+                                  />
+                                  <div className="flex gap-2">
+                                    <button type="submit" disabled={deptLoading}
+                                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest text-white transition-all"
+                                      style={{ background: col, boxShadow: `0 4px 12px ${col}30` }}>
+                                      {deptLoading ? <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus size={10} />}
+                                      Add Section
+                                    </button>
+                                    <button type="button"
+                                      onClick={() => setShowSubForms(prev => ({ ...prev, [dept._id]: false }))}
+                                      className="px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-600 border border-white/[0.06] hover:text-white transition-all">
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </form>
+                              </div>
+                            )}
+
+                            {/* Subcategory list */}
+                            {dept.subcategories?.length > 0 && (
+                              <div className="space-y-1.5">
+                                {dept.subcategories.map((sub, si) => (
+                                  <div key={sub._id || si}
+                                    className="group flex items-start gap-3 p-3.5 rounded-xl border border-white/[0.05] hover:border-white/[0.08] transition-all"
+                                    style={{ background: 'rgba(0,0,0,0.18)' }}>
+                                    <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
+                                      style={{ background: col, boxShadow: `0 0 6px ${col}` }} />
+                                    <div className="flex-1 min-w-0">
+                                      <h5 className="text-[12px] font-black text-white">{sub.title}</h5>
+                                      {sub.content && (
+                                        <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed line-clamp-2">{sub.content}</p>
+                                      )}
+                                    </div>
+                                    <button
+                                      onClick={() => handleDeleteSubcategory(dept._id, sub._id)}
+                                      className="w-6 h-6 rounded-lg flex items-center justify-center bg-red-500/0 hover:bg-red-500/20 text-slate-700 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100 flex-shrink-0 mt-0.5">
+                                      <X size={10} />
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {!dept.subcategories?.length && !showSubForms[dept._id] && (
+                              <p className="text-slate-700 text-[11px] italic px-1">
+                                No sections yet. Click "+ Section" to add one.
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {!departments.length && (
+                    <MiniEmpty text="No departments yet. Click 'Add Department' to create your first department." />
+                  )}
+                </div>
+              </div>
             )}
 
             {/* ── FACULTY ── */}
@@ -765,7 +1084,6 @@ const MyInstitution = () => {
                     <input className="inst-input" name="name" placeholder="Full Name (e.g. Prof. Dr. Anwar Hossain)" onChange={handleInputChange} required />
                     <input className="inst-input" name="title" placeholder="Official Title (e.g. Vice Chancellor, DU)" onChange={handleInputChange} />
 
-                    {/* CATEGORY — full authority list */}
                     <Field label="Category / Role">
                       <select className="inst-input" name="category" onChange={handleInputChange}>
                         {AUTHORITY_CATEGORIES.map(cat => (
@@ -777,7 +1095,6 @@ const MyInstitution = () => {
                     <textarea className="inst-input" name="quote" placeholder="Their inspiring quote or contribution..." onChange={handleInputChange} required style={{ minHeight: '90px', resize: 'vertical' }} />
                     <input className="inst-input" name="yearOfGraduation" placeholder="Batch / Year (Optional, e.g. 1995)" onChange={handleInputChange} />
 
-                    {/* IMAGE UPLOAD (not URL) */}
                     <Field label="Profile Photo (Upload)">
                       <div className="relative">
                         <label className="flex flex-col items-center justify-center gap-3 p-5 rounded-xl border-2 border-dashed border-white/[0.1] hover:border-white/[0.2] transition-all cursor-pointer"

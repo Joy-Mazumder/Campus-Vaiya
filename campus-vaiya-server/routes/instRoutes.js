@@ -7,17 +7,16 @@ const { upload } = require('../config/cloudinary');
 
 // ==========================
 // ⚠️ IMPORTANT: Static routes MUST come before dynamic /:param routes
-// Otherwise Express matches /:instId before /details, /search, etc.
 // ==========================
 
 // ==========================
-// 1. Static Public Routes (এগুলো সবার আগে থাকতে হবে)
+// 1. Static Public Routes
 // ==========================
 router.get('/search', instController.searchInstitutions);
 router.get('/details/:id', instController.getInstitutionDetails);
 
 // ==========================
-// 2. Auth Required — Static paths (protect করা, কিন্তু dynamic param নেই)
+// 2. Auth Required — Static paths
 // ==========================
 router.post('/create', protect, upload.fields([
     { name: 'license', maxCount: 1 },
@@ -43,49 +42,60 @@ router.get('/result/batch/:batchId', protect, instAdminProtect, instController.g
 // ==========================
 // 4. Institution Admin Only
 // ==========================
-// ব্র্যান্ডিং আপডেট
+// Branding
 router.put('/branding', protect, instAdminProtect, upload.fields([
     { name: 'logo', maxCount: 1 },
     { name: 'banner', maxCount: 1 }
 ]), instController.updateInstitutionBranding);
 
-// ফিন্যান্স
+// Finance
 router.post('/finance/collect-fee', protect, instAdminProtect, instController.collectStudentFee);
 router.post('/finance/expense', protect, instAdminProtect, instController.addExpense);
 
-// রেজাল্ট
+// Result
 router.post('/result/publish', protect, instAdminProtect, instController.publishResult);
 
-// ক্যাম্পাস পোস্ট/ফিড
+// Campus Feed
 router.post('/feed/post', protect, instAdminProtect, upload.fields([
     { name: 'media', maxCount: 1 },
     { name: 'file', maxCount: 1 }
 ]), instController.createInstitutionPost);
-router.post('/personality', protect, instAdminProtect, upload.fields([{ name: 'image', maxCount: 1 }]), instController.addPersonality);
 
-// জেনারেল এন্ট্রি
+// Personality
+router.post('/personality', protect, instAdminProtect, upload.fields([{ name: 'image', maxCount: 1 }]), instController.addPersonality);
+router.delete('/personality/:id', protect, instAdminProtect, instController.deletePersonality);
+
+// General entries
 router.post('/notice', protect, instAdminProtect, instController.createNotice);
 router.post('/batch', protect, instAdminProtect, instController.addBatch);
 router.post('/teacher', protect, instAdminProtect, instController.addTeacher);
 router.post('/achievement', protect, instAdminProtect, instController.addAchievement);
-router.delete('/personality/:id', protect, instAdminProtect, instController.deletePersonality);
 
 // ==========================
-// 5. System Admin Only
+// 5. Department & Subcategory Routes (Admin)
+// NOTE: Static department routes BEFORE dynamic /:instId routes
+// ==========================
+router.post('/departments', protect, instAdminProtect, instController.addDepartment);
+router.put('/departments/:deptId', protect, instAdminProtect, instController.updateDepartment);
+router.delete('/departments/:deptId', protect, instAdminProtect, instController.deleteDepartment);
+router.post('/departments/:deptId/subcategories', protect, instAdminProtect, instController.addSubcategory);
+router.put('/departments/:deptId/subcategories/:subId', protect, instAdminProtect, instController.updateSubcategory);
+router.delete('/departments/:deptId/subcategories/:subId', protect, instAdminProtect, instController.deleteSubcategory);
+
+// ==========================
+// 6. System Admin Only
 // ==========================
 router.put('/claim/approve/:claimId', protect, adminProtect, instController.approveClaim);
 
 // ==========================
-// 6. Dynamic /:param routes — সবার শেষে (MUST BE LAST)
+// 7. Dynamic /:param routes — MUST BE LAST
 // ==========================
-// এই দুটো route /:param pattern, তাই এগুলো সবার নিচে থাকতে হবে
-// নাহলে /search, /details, /my-managed সব কিছু /:instId হিসেবে match করে ফেলে
 router.get('/:instId/personalities', instController.getPersonalities);
-
+router.get('/:instId/departments', instController.getDepartments);
 router.get('/:instId/notices', instController.getNotices);
 router.get('/:instId/batches', instController.getBatches);
 
-// ডিলিট — এটাও dynamic
+// Delete — dynamic
 router.delete('/:type/:id', protect, instAdminProtect, instController.deleteItem);
 
 module.exports = router;

@@ -462,20 +462,14 @@ exports.getCampusFeed = async (req, res) => {
   }
 };
 
-// =====================================================================
-// FIXED: getInstitutionDetails — ObjectId validation + full data return
-// =====================================================================
 exports.getInstitutionDetails = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // ObjectId valid কিনা চেক করা — invalid হলে MongoDB crash করে
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({ message: "Invalid institution ID" });
     }
 
-    // সম্পূর্ণ institution data fetch করা
-    // teachers এবং achievements already embedded array, আলাদা populate লাগবে না
     const institution = await Institution.findById(id).lean();
 
     if (!institution) {
@@ -489,7 +483,6 @@ exports.getInstitutionDetails = async (req, res) => {
   }
 };
 
-// নির্দিষ্ট institution-এর notices
 exports.getInstitutionNotices = async (req, res) => {
   try {
     const { id } = req.params;
@@ -507,7 +500,6 @@ exports.addPersonality = async (req, res) => {
 
     if (!instId) return res.status(403).json({ message: 'Not an institution admin.' });
 
-    // Image comes from file upload (req.files) or URL string fallback
     let image = '';
     if (req.files?.image && req.files.image[0]) {
       image = req.files.image[0].path;
@@ -531,7 +523,6 @@ exports.addPersonality = async (req, res) => {
   }
 };
 
-// GET Notable Personalities for an institution (Public)
 exports.getPersonalities = async (req, res) => {
   try {
     const personalities = await NotablePersonality.find({ institution: req.params.instId })
@@ -542,12 +533,157 @@ exports.getPersonalities = async (req, res) => {
   }
 };
 
-// DELETE a personality (Admin only)
 exports.deletePersonality = async (req, res) => {
   try {
     await NotablePersonality.findByIdAndDelete(req.params.id);
     res.json({ message: 'Deleted successfully' });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// =====================================================================
+// DEPARTMENT & SUBCATEGORY MANAGEMENT
+// =====================================================================
+
+// GET all departments for an institution (Public)
+exports.getDepartments = async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.instId)) {
+      return res.status(400).json({ message: 'Invalid institution ID' });
+    }
+    const inst = await Institution.findById(req.params.instId).select('departments');
+    if (!inst) return res.status(404).json({ message: 'Institution not found' });
+    res.json(inst.departments || []);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ADD a new department (Admin only)
+exports.addDepartment = async (req, res) => {
+  try {
+    const { name, description, established } = req.body;
+    if (!name) return res.status(400).json({ message: 'Department name is required' });
+
+    const inst = await Institution.findOne({ owner: req.user._id });
+    if (!inst) return res.status(404).json({ message: 'Institution not found' });
+
+    inst.departments.push({
+      name,
+      description: description || '',
+      established: established || '',
+      subcategories: []
+    });
+    await inst.save();
+
+    const newDept = inst.departments[inst.departments.length - 1];
+    res.status(201).json(newDept);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// UPDATE a department (Admin only)
+exports.updateDepartment = async (req, res) => {
+  try {
+    const { deptId } = req.params;
+    const { name, description, established } = req.body;
+
+    const inst = await Institution.findOne({ owner: req.user._id });
+    if (!inst) return res.status(404).json({ message: 'Institution not found' });
+
+    const dept = inst.departments.id(deptId);
+    if (!dept) return res.status(404).json({ message: 'Department not found' });
+
+    if (name) dept.name = name;
+    if (description !== undefined) dept.description = description;
+    if (established !== undefined) dept.established = established;
+
+    await inst.save();
+    res.json(dept);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// DELETE a department (Admin only)
+exports.deleteDepartment = async (req, res) => {
+  try {
+    const { deptId } = req.params;
+    const inst = await Institution.findOne({ owner: req.user._id });
+    if (!inst) return res.status(404).json({ message: 'Institution not found' });
+
+    inst.departments.pull({ _id: deptId });
+    await inst.save();
+    res.json({ message: 'Department deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// ADD a subcategory to a department (Admin only)
+exports.addSubcategory = async (req, res) => {
+  try {
+    const { deptId } = req.params;
+    const { title, content } = req.body;
+    if (!title) return res.status(400).json({ message: 'Subcategory title is required' });
+
+    const inst = await Institution.findOne({ owner: req.user._id });
+    if (!inst) return res.status(404).json({ message: 'Institution not found' });
+
+    const dept = inst.departments.id(deptId);
+    if (!dept) return res.status(404).json({ message: 'Department not found' });
+
+    dept.subcategories.push({ title, content: content || '' });
+    await inst.save();
+
+    res.status(201).json(dept);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// UPDATE a subcategory (Admin only)
+exports.updateSubcategory = async (req, res) => {
+  try {
+    const { deptId, subId } = req.params;
+    const { title, content } = req.body;
+
+    const inst = await Institution.findOne({ owner: req.user._id });
+    if (!inst) return res.status(404).json({ message: 'Institution not found' });
+
+    const dept = inst.departments.id(deptId);
+    if (!dept) return res.status(404).json({ message: 'Department not found' });
+
+    const sub = dept.subcategories.id(subId);
+    if (!sub) return res.status(404).json({ message: 'Subcategory not found' });
+
+    if (title) sub.title = title;
+    if (content !== undefined) sub.content = content;
+
+    await inst.save();
+    res.json(dept);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// DELETE a subcategory (Admin only)
+exports.deleteSubcategory = async (req, res) => {
+  try {
+    const { deptId, subId } = req.params;
+
+    const inst = await Institution.findOne({ owner: req.user._id });
+    if (!inst) return res.status(404).json({ message: 'Institution not found' });
+
+    const dept = inst.departments.id(deptId);
+    if (!dept) return res.status(404).json({ message: 'Department not found' });
+
+    dept.subcategories.pull({ _id: subId });
+    await inst.save();
+    res.json({ message: 'Subcategory deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };

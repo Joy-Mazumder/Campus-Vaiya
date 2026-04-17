@@ -52,6 +52,10 @@ const Dashboard = () => {
   const [campusTab, setCampusTab] = useState('overview');
   const [personalities, setPersonalities] = useState([]);
 
+  /* ── Department accordion state ── */
+  const [openDept, setOpenDept] = useState(null);
+  const [openSubsByDept, setOpenSubsByDept] = useState({});
+
   const studentInstId =
     user?.enrolledCampus && typeof user.enrolledCampus === 'object'
       ? user.enrolledCampus._id?.toString()
@@ -324,18 +328,15 @@ const Dashboard = () => {
                             <div key={i}
                               className="relative overflow-hidden rounded-[20px] border transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl"
                               style={{ background: `linear-gradient(160deg,${color}18,#0d1829 70%,#060e1c)`, borderColor: `${color}42`, boxShadow: `0 6px 32px ${color}1e` }}>
-                              {/* Top glow line */}
                               <div className="absolute top-0 left-0 right-0 h-[2px]" style={{ background: `linear-gradient(to right,transparent,${color}aa,transparent)` }} />
                               <div className="absolute top-0 right-0 w-28 h-28 rounded-full blur-[55px] opacity-22 pointer-events-none" style={{ background: color }} />
                               <div className="relative z-10 flex flex-col items-center text-center p-6">
-                                {/* Avatar */}
                                 <div className="rounded-[16px] overflow-hidden flex items-center justify-center mb-4 border-2"
                                   style={{ width: '80px', height: '80px', background: `linear-gradient(145deg,${color}22,#0d1829)`, borderColor: `${color}60`, boxShadow: `0 0 28px ${color}38` }}>
                                   {person.image
                                     ? <img src={person.image} alt={person.name} className="w-full h-full object-cover" />
                                     : <span className="font-black" style={{ fontSize: '1.8rem', color }}>{person.name?.charAt(0) || '?'}</span>}
                                 </div>
-                                {/* Category */}
                                 <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full mb-3"
                                   style={{ background: `${color}22`, border: `1px solid ${color}50` }}>
                                   <div className="w-1.5 h-1.5 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
@@ -464,42 +465,195 @@ const Dashboard = () => {
                 </div>
               )}
 
-              {/* ═══════════════════════════════════ */}
-              {/* DEPARTMENTS TAB                     */}
-              {/* ═══════════════════════════════════ */}
+              {/* ═══════════════════════════════════════════════════════════ */}
+              {/* DEPARTMENTS TAB — PREMIUM COLLAPSIBLE ACCORDION             */}
+              {/* ═══════════════════════════════════════════════════════════ */}
               {studentInstId && !campusLoading && campusTab === 'departments' && (
-                <div className="space-y-4 animate-in fade-in duration-300">
+                <div className="space-y-3 animate-in fade-in duration-300">
                   {activeInst?.departments?.length > 0 ? (
                     activeInst.departments.map((dept, i) => {
                       const colors = ['#818cf8','#f472b6','#38bdf8','#34d399','#fbbf24','#c084fc','#f87171','#22d3ee'];
                       const col = colors[i % colors.length];
+                      const deptId = dept._id?.toString() || String(i);
+                      const isOpen = openDept === deptId;
+
                       return (
-                        <div key={i}
-                          className="relative overflow-hidden rounded-2xl border transition-all hover:border-opacity-70 p-6"
-                          style={{ background: 'linear-gradient(135deg,#0d1829,#07091a)', borderColor: col + '35', boxShadow: `0 4px 30px rgba(0,0,0,0.4)` }}>
-                          <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(to right,${col}70,transparent)` }} />
-                          <div className="absolute top-0 right-0 w-44 h-44 rounded-full blur-[90px] pointer-events-none opacity-12" style={{ background: col }} />
-                          <div className="flex items-center gap-4 mb-4">
-                            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-                              style={{ background: col + '22', color: col, boxShadow: `0 4px 18px ${col}28`, border: `1px solid ${col}40` }}>
-                              <BookMarked size={20} />
+                        <div key={deptId}
+                          className="relative overflow-hidden rounded-2xl border transition-all duration-300"
+                          style={{
+                            background: isOpen
+                              ? `linear-gradient(135deg,${col}0f,#0d1829 60%,#07091a)`
+                              : 'linear-gradient(135deg,#0d1829,#07091a)',
+                            borderColor: isOpen ? col + '55' : col + '28',
+                            boxShadow: isOpen ? `0 8px 48px ${col}18, 0 2px 24px rgba(0,0,0,0.6)` : '0 2px 16px rgba(0,0,0,0.35)',
+                          }}>
+
+                          {/* Top glow line */}
+                          <div className="absolute top-0 left-0 right-0 h-px rounded-t-2xl pointer-events-none"
+                            style={{ background: `linear-gradient(to right,transparent,${col}${isOpen ? 'cc' : '50'},transparent)` }} />
+
+                          {/* Corner ambient glow */}
+                          <div className="absolute top-0 right-0 w-56 h-56 rounded-full blur-[110px] pointer-events-none transition-all duration-500"
+                            style={{ background: col, opacity: isOpen ? 0.14 : 0.07 }} />
+
+                          {/* ── DEPARTMENT HEADER (always visible, clickable) ── */}
+                          <button
+                            onClick={() => {
+                              setOpenDept(isOpen ? null : deptId);
+                              setOpenSubsByDept({});
+                            }}
+                            className="w-full flex items-center gap-4 p-5 text-left group"
+                          >
+                            {/* Icon box */}
+                            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300"
+                              style={{
+                                background: isOpen ? col + '28' : col + '14',
+                                color: col,
+                                border: `1.5px solid ${isOpen ? col + '60' : col + '28'}`,
+                                boxShadow: isOpen ? `0 4px 22px ${col}28` : 'none',
+                              }}>
+                              <BookMarked size={19} />
                             </div>
-                            <div className="w-0.5 h-7 rounded-full" style={{ background: `linear-gradient(to bottom,${col},${col}33)` }} />
-                            <h3 className="font-black text-white text-lg">{dept.name}</h3>
-                            {dept.established && (
-                              <span className="ml-auto text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full"
-                                style={{ background: col + '20', color: col, border: `1px solid ${col}35` }}>Est. {dept.established}</span>
-                            )}
-                          </div>
-                          {dept.description && <p className="text-slate-300 text-sm leading-relaxed mb-4">{dept.description}</p>}
-                          {dept.subFields?.length > 0 && (
-                            <div className="flex flex-wrap gap-2">
-                              {dept.subFields.map((sf, j) => (
-                                <span key={j} className="px-3.5 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-wider"
-                                  style={{ background: col + '18', color: col, border: `1px solid ${col}28` }}>
-                                  {sf}
+
+                            {/* Vertical divider */}
+                            <div className="w-px h-8 rounded-full flex-shrink-0 transition-all duration-300"
+                              style={{ background: `linear-gradient(to bottom,${col}${isOpen ? 'cc' : '45'},transparent)` }} />
+
+                            {/* Name & year */}
+                            <div className="flex-1 min-w-0">
+                              <h3 className="font-black text-white text-[15px] leading-tight group-hover:text-white transition-colors">
+                                {dept.name}
+                              </h3>
+                              {dept.established && (
+                                <span className="text-[10px] font-black uppercase tracking-wider mt-0.5 block"
+                                  style={{ color: col + '99' }}>
+                                  Est. {dept.established}
                                 </span>
-                              ))}
+                              )}
+                            </div>
+
+                            {/* Sections badge */}
+                            {dept.subcategories?.length > 0 && (
+                              <span className="flex-shrink-0 text-[10px] font-black px-2.5 py-1 rounded-full transition-all"
+                                style={{
+                                  background: isOpen ? col + '28' : col + '14',
+                                  color: col,
+                                  border: `1px solid ${col}${isOpen ? '45' : '28'}`,
+                                }}>
+                                {dept.subcategories.length} {dept.subcategories.length === 1 ? 'section' : 'sections'}
+                              </span>
+                            )}
+
+                            {/* Chevron */}
+                            <ChevronRight
+                              size={16}
+                              className="flex-shrink-0 transition-all duration-300"
+                              style={{
+                                transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                                color: isOpen ? col : '#475569',
+                              }}
+                            />
+                          </button>
+
+                          {/* ── EXPANDED BODY ── */}
+                          {isOpen && (
+                            <div className="px-5 pb-6 space-y-4 animate-in fade-in slide-in-from-top-1 duration-200">
+
+                              {/* Horizontal separator */}
+                              <div className="h-px" style={{ background: `linear-gradient(to right,${col}35,transparent 70%)` }} />
+
+                              {/* Department description */}
+                              {dept.description && (
+                                <div className="relative p-5 rounded-xl overflow-hidden"
+                                  style={{
+                                    background: `linear-gradient(135deg,rgba(0,0,0,0.45),rgba(0,0,0,0.22))`,
+                                    border: `1px solid ${col}22`,
+                                  }}>
+                                  <div className="absolute top-0 left-0 right-0 h-px rounded-t-xl"
+                                    style={{ background: `linear-gradient(to right,${col}55,transparent)` }} />
+                                  <div className="absolute left-0 top-3 bottom-3 w-0.5 rounded-r-full"
+                                    style={{ background: `linear-gradient(to bottom,${col},${col}22)` }} />
+                                  <p className="text-slate-200 text-[14px] leading-relaxed pl-3">{dept.description}</p>
+                                </div>
+                              )}
+
+                              {/* Subcategories */}
+                              {dept.subcategories?.length > 0 && (
+                                <div className="space-y-2 pt-1">
+                                  <div className="flex items-center gap-2 px-1 mb-3">
+                                    <div className="w-1 h-4 rounded-full" style={{ background: `linear-gradient(to bottom,${col},${col}44)` }} />
+                                    <p className="text-[10px] font-black text-white uppercase tracking-[0.18em]">Sections</p>
+                                    <div className="flex-1 h-px" style={{ background: `linear-gradient(to right,${col}30,transparent)` }} />
+                                  </div>
+
+                                  {dept.subcategories.map((sub, si) => {
+                                    const subId = sub._id?.toString() || `${deptId}-${si}`;
+                                    const isSubOpen = openSubsByDept[deptId] === subId;
+
+                                    return (
+                                      <div key={subId}
+                                        className="rounded-xl border transition-all duration-200 overflow-hidden"
+                                        style={{
+                                          background: isSubOpen ? `${col}0a` : 'rgba(0,0,0,0.18)',
+                                          borderColor: isSubOpen ? col + '45' : 'rgba(255,255,255,0.05)',
+                                        }}>
+
+                                        {/* Subcategory header */}
+                                        <button
+                                          onClick={() => setOpenSubsByDept(prev => ({
+                                            ...prev,
+                                            [deptId]: isSubOpen ? null : subId,
+                                          }))}
+                                          className="w-full flex items-center gap-3 px-4 py-3.5 text-left group/sub"
+                                        >
+                                          {/* Dot indicator */}
+                                          <div className="w-2 h-2 rounded-full flex-shrink-0 transition-all duration-200"
+                                            style={{
+                                              background: isSubOpen ? col : '#334155',
+                                              boxShadow: isSubOpen ? `0 0 8px ${col}90` : 'none',
+                                            }} />
+
+                                          <span className="flex-1 text-[13px] font-black leading-snug transition-colors"
+                                            style={{ color: isSubOpen ? '#fff' : '#94a3b8' }}>
+                                            {sub.title}
+                                          </span>
+
+                                          <ChevronRight
+                                            size={13}
+                                            className="flex-shrink-0 transition-all duration-200"
+                                            style={{
+                                              transform: isSubOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+                                              color: isSubOpen ? col + 'cc' : '#334155',
+                                            }}
+                                          />
+                                        </button>
+
+                                        {/* Subcategory content */}
+                                        {isSubOpen && (
+                                          <div className="px-4 pb-4 animate-in fade-in duration-150">
+                                            <div className="h-px mb-3.5"
+                                              style={{ background: `linear-gradient(to right,${col}40,transparent)` }} />
+                                            {sub.content ? (
+                                              <p className="text-slate-300 text-[13.5px] leading-relaxed whitespace-pre-line pl-5">
+                                                {sub.content}
+                                              </p>
+                                            ) : (
+                                              <p className="text-slate-600 text-sm italic pl-5">
+                                                No details added for this section yet.
+                                              </p>
+                                            )}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {/* If no description and no subcategories */}
+                              {!dept.description && (!dept.subcategories || dept.subcategories.length === 0) && (
+                                <p className="text-slate-600 text-sm italic px-1">No details have been added for this department yet.</p>
+                              )}
                             </div>
                           )}
                         </div>
@@ -508,11 +662,14 @@ const Dashboard = () => {
                   ) : (
                     <div className="relative overflow-hidden rounded-2xl border border-white/[0.07] p-14 text-center"
                       style={{ background: 'linear-gradient(135deg,#0d1829,#07091a)' }}>
-                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5" style={{ background: tc + '18', border: `1px solid ${tc}28`, padding: '1rem' }}>
+                      <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-5"
+                        style={{ background: tc + '18', border: `1px solid ${tc}28`, padding: '1rem' }}>
                         <Layers size={28} style={{ color: tc }} className="opacity-60" />
                       </div>
                       <h3 className="text-white font-black text-lg mb-2">No Departments Added Yet</h3>
-                      <p className="text-slate-400 text-sm max-w-sm mx-auto">Departments and their sub-fields will appear here once the institution admin adds them.</p>
+                      <p className="text-slate-400 text-sm max-w-sm mx-auto">
+                        Departments and their sections will appear here once the institution admin adds them.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -580,7 +737,6 @@ const Dashboard = () => {
                       ].map((g) => (
                         <div key={g.grade} className="rounded-[14px] py-3 px-2 text-center border transition-all hover:scale-105"
                           style={{ background: `linear-gradient(160deg,${g.color}18,${g.color}08)`, borderColor: `${g.color}38`, boxShadow: `0 4px 16px ${g.color}10` }}>
-                          {/* Glow top line */}
                           <div className="w-full h-px rounded-full mb-2" style={{ background: `linear-gradient(to right,transparent,${g.color}80,transparent)` }} />
                           <p className="font-black leading-none mb-1.5" style={{ fontSize: '22px', color: g.color, textShadow: `0 0 20px ${g.color}80` }}>{g.grade}</p>
                           <p className="font-bold text-slate-400" style={{ fontSize: '9px' }}>{g.range}%</p>
@@ -598,13 +754,9 @@ const Dashboard = () => {
                       <div key={r._id}
                         className="relative overflow-hidden rounded-2xl border transition-all hover:border-opacity-60"
                         style={{ background: 'linear-gradient(135deg,#0d1829,#07091a)', borderColor: color + '35', boxShadow: `0 4px 36px ${color}12` }}>
-
-                        {/* Top glow line */}
                         <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(to right,transparent,${color}70,transparent)` }} />
                         <div className="absolute top-0 right-0 w-52 h-52 rounded-full blur-[90px] pointer-events-none" style={{ background: color + '16' }} />
-
                         <div className="p-6 flex items-start gap-6">
-                          {/* SVG Ring Score */}
                           <div className="flex-shrink-0 relative" style={{ width: '104px', height: '104px' }}>
                             <svg viewBox="0 0 88 88" className="w-full h-full -rotate-90">
                               <circle cx="44" cy="44" r="36" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" />
@@ -619,8 +771,6 @@ const Dashboard = () => {
                               <span className="text-[10px] font-black text-slate-400 mt-0.5">{pct.toFixed(0)}%</span>
                             </div>
                           </div>
-
-                          {/* Info Block */}
                           <div className="flex-1 min-w-0">
                             <h4 className="font-black text-white text-[17px] leading-snug mb-2">{r.examName}</h4>
                             <div className="flex items-center gap-2.5 mb-4 flex-wrap">
@@ -636,8 +786,6 @@ const Dashboard = () => {
                                 GPA {gpa}
                               </span>
                             </div>
-
-                            {/* Score display */}
                             <div className="flex items-end justify-between mb-2">
                               <div>
                                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1">Score</p>
@@ -650,8 +798,6 @@ const Dashboard = () => {
                                 <p className="text-4xl font-black tabular-nums leading-none" style={{ color }}>{gpa}</p>
                               </div>
                             </div>
-
-                            {/* Progress bar */}
                             <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden mt-3">
                               <div className="h-full rounded-full transition-all duration-700"
                                 style={{ width: `${Math.min(pct, 100)}%`, background: `linear-gradient(to right,${color}80,${color})`, boxShadow: `0 0 10px ${color}60` }} />
@@ -715,13 +861,10 @@ const Dashboard = () => {
                       <div key={i}
                         className="group relative overflow-hidden rounded-2xl border transition-all hover:-translate-y-1.5 hover:shadow-2xl"
                         style={{ background: 'linear-gradient(160deg,#0d1829,#07091a)', borderColor: col + '30', boxShadow: `0 4px 28px ${col}0e` }}>
-                        {/* Top glow line */}
                         <div className="absolute top-0 left-0 right-0 h-0.5 rounded-t-2xl" style={{ background: `linear-gradient(to right,${col}80,${col}ee,${col}80)` }} />
                         <div className="absolute top-0 right-0 w-32 h-32 rounded-full blur-[70px] opacity-10 pointer-events-none group-hover:opacity-22 transition-opacity" style={{ background: col }} />
-
                         <div className="p-5 relative z-10">
                           <div className="flex items-start gap-4">
-                            {/* Avatar */}
                             <div className="flex-shrink-0">
                               <div className="w-[72px] h-[72px] rounded-2xl overflow-hidden border-2"
                                 style={{ background: `linear-gradient(135deg,${col}22,#0d1829)`, borderColor: col + '55', boxShadow: `0 0 24px ${col}28` }}>
@@ -732,7 +875,6 @@ const Dashboard = () => {
                                     </div>}
                               </div>
                             </div>
-                            {/* Details */}
                             <div className="flex-1 min-w-0">
                               <h4 className="font-black text-white text-[15px] leading-snug mb-0.5">{t.name}</h4>
                               <p className="text-[11px] font-black uppercase tracking-wider mb-2.5" style={{ color: col }}>{t.designation}</p>
@@ -758,9 +900,7 @@ const Dashboard = () => {
             {/* RIGHT SIDEBAR */}
             <div className="xl:col-span-4 space-y-5">
 
-              {/* ════════════════════════════════════════ */}
-              {/* AUTHORITY CARDS — PREMIUM QUOTE DESIGN  */}
-              {/* ════════════════════════════════════════ */}
+              {/* AUTHORITY CARDS */}
               {authorityPersonalities.length > 0 && (
                 <div className="relative overflow-hidden rounded-[28px] border"
                   style={{ background: 'linear-gradient(160deg,#0e0620,#0b1127)', borderColor: '#a855f738', height: '780px', boxShadow: '0 8px 60px rgba(0,0,0,0.8), 0 0 60px rgba(168,85,247,0.12)' }}>
@@ -859,18 +999,11 @@ const AuthorityCard = ({ person }) => {
         borderColor: col + '45',
         boxShadow: `0 12px 50px rgba(0,0,0,0.65), 0 0 0 1px ${col}18, 0 0 60px ${col}0a`,
       }}>
-
-      {/* TOP GLOW LINE */}
       <div className="absolute top-0 left-0 right-0 h-[2px] rounded-t-[24px]"
         style={{ background: `linear-gradient(to right,transparent 5%,${col}cc 40%,${col} 50%,${col}cc 60%,transparent 95%)` }} />
-
-      {/* AMBIENT CORNER GLOW */}
       <div className="absolute -top-4 -right-4 w-44 h-44 rounded-full blur-[80px] opacity-22 pointer-events-none" style={{ background: col }} />
       <div className="absolute bottom-0 left-0 w-32 h-32 rounded-full blur-[60px] opacity-08 pointer-events-none" style={{ background: col }} />
-
-      {/* ── IDENTITY ROW ── */}
       <div className="flex items-start gap-5 px-6 pt-6 pb-5">
-        {/* Avatar */}
         <div className="relative flex-shrink-0">
           <div className="rounded-[18px] overflow-hidden border-[2.5px]"
             style={{
@@ -886,14 +1019,10 @@ const AuthorityCard = ({ person }) => {
                   {person.name?.charAt(0) || '?'}
                 </div>}
           </div>
-          {/* Online / active dot */}
           <div className="absolute -bottom-1.5 -right-1.5 w-5 h-5 rounded-full border-[2.5px] border-[#060e1c]"
             style={{ background: col, boxShadow: `0 0 12px ${col}, 0 0 24px ${col}80` }} />
         </div>
-
-        {/* Name / title / badge */}
         <div className="flex-1 min-w-0 pt-0.5">
-          {/* Category badge */}
           <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full mb-2.5"
             style={{ background: `${col}20`, border: `1px solid ${col}50`, boxShadow: `0 0 16px ${col}20` }}>
             <div className="w-1.5 h-1.5 rounded-full" style={{ background: col, boxShadow: `0 0 6px ${col}` }} />
@@ -909,11 +1038,7 @@ const AuthorityCard = ({ person }) => {
           )}
         </div>
       </div>
-
-      {/* DIVIDER */}
       <div className="mx-6 h-px" style={{ background: `linear-gradient(to right,${col}40,${col}10,transparent)` }} />
-
-      {/* ── QUOTE BLOCK ── */}
       {person.quote && (
         <div className="mx-6 my-5 relative rounded-2xl overflow-hidden"
           style={{
@@ -921,14 +1046,11 @@ const AuthorityCard = ({ person }) => {
             border: `1px solid ${col}28`,
             boxShadow: `inset 0 1px 0 ${col}20`,
           }}>
-          {/* Inner top glow */}
           <div className="absolute top-0 left-0 right-0 h-px" style={{ background: `linear-gradient(to right,${col}55,transparent)` }} />
-          {/* Giant decorative open-quote */}
           <div className="absolute -top-1 left-3 pointer-events-none select-none"
             style={{ fontSize: '72px', color: col, opacity: 0.50, fontFamily: 'Georgia, "Times New Roman", serif', lineHeight: 1 }}>
             &#8220;
           </div>
-          {/* Giant decorative close-quote */}
           <div className="absolute -bottom-7 right-3 pointer-events-none select-none"
             style={{ fontSize: '72px', color: col, opacity: 0.35, fontFamily: 'Georgia, "Times New Roman", serif', lineHeight: 1 }}>
             &#8221;
@@ -1034,3 +1156,4 @@ const DashboardStyles = () => (
 );
 
 export default Dashboard;
+
