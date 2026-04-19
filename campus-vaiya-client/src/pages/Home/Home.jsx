@@ -2,193 +2,185 @@ import React, { useState, useContext, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { AuthContext } from "../../context/AuthContext";
 
+/* ─────────────────────────────────────────────────────────────────────
+   PERFORMANCE NOTES
+   • All convergence blobs use transform (GPU) only — no layout triggers
+   • No mix-blend-mode on animated elements (extremely expensive)
+   • filter: blur() only on will-change: transform elements (composited layer)
+   • backdrop-blur used sparingly — only on small elements
+   • Convergence animation lives ONLY inside the hero 100vh container
+   • Rest of page gets subtle static gradient vibes, no moving blurs
+───────────────────────────────────────────────────────────────────── */
+
 const customStyles = `
-  @keyframes float_amb { 0%, 100% { transform: translateY(0px) rotate(0deg); } 50% { transform: translateY(-25px) rotate(2deg); } }
-  @keyframes shimmer_text { 0% { background-position: -200% center; } 100% { background-position: 200% center; } }
-  @keyframes fade_up { 0% { opacity: 0; transform: translateY(30px); } 100% { opacity: 1; transform: translateY(0); } }
-  @keyframes rotate_icon { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  
-  @keyframes mesh_flow {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
+  /* ── Core animations ── */
+  @keyframes float_slow {
+    0%, 100% { transform: translateY(0px) translateZ(0); }
+    50%       { transform: translateY(-20px) translateZ(0); }
   }
-
-  @keyframes status_pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
+  @keyframes shimmer_text {
+    0%   { background-position: -200% center; }
+    100% { background-position: 200% center; }
   }
-
-  /* ─── Three-color convergence background animation ─── */
-  @keyframes blob_left {
-    0%   { transform: translate(-120%, 30%) scale(1);   opacity: 0.55; }
-    30%  { transform: translate(-30%,  20%) scale(1.1); opacity: 0.65; }
-    55%  { transform: translate(10%,   0%)  scale(1.3); opacity: 0.75; }
-    70%  { transform: translate(0%,    0%)  scale(0.9); opacity: 0.9;  }
-    80%  { transform: translate(0%,    0%)  scale(0.5); opacity: 0.6;  }
-    90%  { transform: translate(0%,    0%)  scale(0.2); opacity: 0.3;  }
-    100% { transform: translate(-120%, 30%) scale(1);   opacity: 0.55; }
-  }
-  @keyframes blob_right {
-    0%   { transform: translate(120%, -20%) scale(1);   opacity: 0.55; }
-    30%  { transform: translate(30%,  -10%) scale(1.1); opacity: 0.65; }
-    55%  { transform: translate(-10%, 0%)   scale(1.3); opacity: 0.75; }
-    70%  { transform: translate(0%,   0%)   scale(0.9); opacity: 0.9;  }
-    80%  { transform: translate(0%,   0%)   scale(0.5); opacity: 0.6;  }
-    90%  { transform: translate(0%,   0%)   scale(0.2); opacity: 0.3;  }
-    100% { transform: translate(120%, -20%) scale(1);   opacity: 0.55; }
-  }
-  @keyframes blob_top {
-    0%   { transform: translate(0%, -120%) scale(1);   opacity: 0.55; }
-    30%  { transform: translate(0%, -30%)  scale(1.1); opacity: 0.65; }
-    55%  { transform: translate(0%, 10%)   scale(1.3); opacity: 0.75; }
-    70%  { transform: translate(0%, 0%)    scale(0.9); opacity: 0.9;  }
-    80%  { transform: translate(0%, 0%)    scale(0.5); opacity: 0.6;  }
-    90%  { transform: translate(0%, 0%)    scale(0.2); opacity: 0.3;  }
-    100% { transform: translate(0%, -120%) scale(1);   opacity: 0.55; }
-  }
-  @keyframes collapse_flash {
-    0%   { opacity: 0; transform: scale(0.1); }
-    10%  { opacity: 0.9; transform: scale(2.5); }
-    30%  { opacity: 0.6; transform: scale(1.8); }
-    60%  { opacity: 0.3; transform: scale(1.2); }
-    100% { opacity: 0; transform: scale(0.1); }
-  }
-
-  .color-blob-left  { animation: blob_left  8s ease-in-out infinite; }
-  .color-blob-right { animation: blob_right 8s ease-in-out infinite; }
-  .color-blob-top   { animation: blob_top   8s ease-in-out infinite; }
-  .collapse-flash   { animation: collapse_flash 8s ease-in-out infinite; animation-delay: 4.5s; }
-
-  /* ─── Terminal flip animation ─── */
-  @keyframes terminal_flip_in {
-    0%   { transform: perspective(800px) rotateX(0deg);   opacity: 1; }
-    40%  { transform: perspective(800px) rotateX(90deg);  opacity: 0.2; }
-    60%  { transform: perspective(800px) rotateX(-90deg); opacity: 0.2; }
-    100% { transform: perspective(800px) rotateX(0deg);   opacity: 1; }
-  }
-  @keyframes terminal_flip_out {
-    0%   { transform: perspective(800px) rotateX(0deg);   opacity: 1; }
-    40%  { transform: perspective(800px) rotateX(90deg);  opacity: 0.2; }
-    60%  { transform: perspective(800px) rotateX(-90deg); opacity: 0.2; }
-    100% { transform: perspective(800px) rotateX(0deg);   opacity: 1; }
-  }
-  .terminal-flip { animation: terminal_flip_in 0.7s cubic-bezier(0.4, 0, 0.2, 1); }
-
-  /* ─── Terminal browser bar fade ─── */
-  @keyframes bar_enter {
-    0%   { opacity: 0; transform: translateY(-6px); }
+  @keyframes fade_up {
+    0%   { opacity: 0; transform: translateY(24px); }
     100% { opacity: 1; transform: translateY(0); }
   }
-  .bar-enter { animation: bar_enter 0.5s ease-out forwards; }
-
-  /* ─── Website shimmer skeleton ─── */
-  @keyframes skeleton_shine {
-    0%   { background-position: -200% 0; }
-    100% { background-position: 200% 0; }
-  }
-  .skeleton-shine {
-    background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(6,182,212,0.15) 50%, rgba(255,255,255,0.05) 75%);
-    background-size: 200% 100%;
-    animation: skeleton_shine 1.6s linear infinite;
-    border-radius: 6px;
+  @keyframes rotate_icon {
+    0%   { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 
-  /* ─── Ready state website content ─── */
-  @keyframes page_appear {
-    0%   { opacity: 0; transform: scale(0.97); }
-    100% { opacity: 1; transform: scale(1); }
+  /* ── Hero background: three-color convergence (GPU only, no mix-blend) ── */
+  /*  Blob positions are animated with translate only.
+      Colors overlap via low opacity, producing natural blended hues. */
+  @keyframes conv_left {
+    0%, 100% { transform: translate(-70vw, 10vh) scale(1)   translateZ(0); opacity: 0.55; }
+    45%       { transform: translate(-5vw,  -2vh) scale(1.2) translateZ(0); opacity: 0.70; }
+    60%       { transform: translate(0vw,   0vh)  scale(0.8) translateZ(0); opacity: 0.85; }
+    75%       { transform: translate(-5vw,  5vh)  scale(0.4) translateZ(0); opacity: 0.40; }
+    88%       { transform: translate(-40vw, 8vh)  scale(0.7) translateZ(0); opacity: 0.45; }
   }
-  .page-appear { animation: page_appear 0.6s ease-out forwards; }
+  @keyframes conv_right {
+    0%, 100% { transform: translate(70vw, -10vh) scale(1)   translateZ(0); opacity: 0.55; }
+    45%       { transform: translate(5vw,   0vh)  scale(1.2) translateZ(0); opacity: 0.70; }
+    60%       { transform: translate(0vw,   0vh)  scale(0.8) translateZ(0); opacity: 0.85; }
+    75%       { transform: translate(5vw,  -5vh)  scale(0.4) translateZ(0); opacity: 0.40; }
+    88%       { transform: translate(40vw, -8vh)  scale(0.7) translateZ(0); opacity: 0.45; }
+  }
+  @keyframes conv_top {
+    0%, 100% { transform: translate(0vw, -70vh) scale(1)   translateZ(0); opacity: 0.55; }
+    45%       { transform: translate(0vw,  0vh)  scale(1.2) translateZ(0); opacity: 0.70; }
+    60%       { transform: translate(0vw,  0vh)  scale(0.8) translateZ(0); opacity: 0.85; }
+    75%       { transform: translate(0vw,  8vh)  scale(0.4) translateZ(0); opacity: 0.40; }
+    88%       { transform: translate(5vw, -30vh) scale(0.7) translateZ(0); opacity: 0.45; }
+  }
+  @keyframes flash_collapse {
+    0%,  56% { opacity: 0;   transform: translate(-50%, -50%) scale(0.05) translateZ(0); }
+    62%       { opacity: 0.7; transform: translate(-50%, -50%) scale(1.8)  translateZ(0); }
+    72%       { opacity: 0.4; transform: translate(-50%, -50%) scale(1.2)  translateZ(0); }
+    82%       { opacity: 0.1; transform: translate(-50%, -50%) scale(0.8)  translateZ(0); }
+    90%, 100% { opacity: 0;   transform: translate(-50%, -50%) scale(0.1) translateZ(0); }
+  }
 
-  /* ─── Progress bar ─── */
-  @keyframes progress_load {
+  .blob-left  {
+    will-change: transform, opacity;
+    animation: conv_left  10s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+  .blob-right {
+    will-change: transform, opacity;
+    animation: conv_right 10s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+  .blob-top   {
+    will-change: transform, opacity;
+    animation: conv_top   10s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+  .blob-flash {
+    will-change: transform, opacity;
+    animation: flash_collapse 10s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+
+  /* ── General utilities ── */
+  .anim-fade-up  { animation: fade_up 0.7s ease-out forwards; opacity: 0; }
+  .shimmer-text  { background-size: 200% auto; animation: shimmer_text 5s linear infinite; }
+  .float-slow    { animation: float_slow 7s ease-in-out infinite; }
+  .group:hover .icon-spin { animation: rotate_icon 0.65s cubic-bezier(0.4, 0, 0.2, 1); }
+
+  /* ── Background base ── */
+  .page-bg {
+    background: #030014;
+  }
+
+  /* ── Subtle dot grid ── */
+  .dot-grid {
+    background-image: radial-gradient(rgba(6,182,212,0.12) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+
+  /* ── Terminal flip ── */
+  @keyframes term_flip {
+    0%   { transform: perspective(1000px) rotateX(0deg); opacity: 1; }
+    35%  { transform: perspective(1000px) rotateX(88deg); opacity: 0.15; }
+    65%  { transform: perspective(1000px) rotateX(-88deg); opacity: 0.15; }
+    100% { transform: perspective(1000px) rotateX(0deg); opacity: 1; }
+  }
+  .term-flip { animation: term_flip 0.6s ease-in-out; }
+
+  /* ── Skeleton shimmer ── */
+  @keyframes sk_shine {
+    0%   { background-position: -300% 0; }
+    100% { background-position: 300% 0; }
+  }
+  .sk {
+    background: linear-gradient(
+      90deg,
+      rgba(255,255,255,0.04) 0%,
+      rgba(6,182,212,0.12) 50%,
+      rgba(255,255,255,0.04) 100%
+    );
+    background-size: 300% 100%;
+    animation: sk_shine 1.8s linear infinite;
+    border-radius: 5px;
+  }
+
+  /* ── Progress bar ── */
+  @keyframes prog {
     0%   { width: 0%; }
-    40%  { width: 55%; }
-    70%  { width: 80%; }
-    90%  { width: 95%; }
+    35%  { width: 50%; }
+    65%  { width: 78%; }
+    85%  { width: 93%; }
     100% { width: 100%; }
   }
-  .progress-bar { animation: progress_load 2.8s ease-in-out forwards; }
+  .prog-bar { animation: prog 3s ease-in-out forwards; }
 
-  /* ─── Cursor blink ─── */
-  @keyframes cursor_blink {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: 0; }
+  /* ── Cursor blink ── */
+  @keyframes cblink { 0%,100%{opacity:1;} 50%{opacity:0;} }
+  .cur { animation: cblink 1s step-end infinite; }
+
+  /* ── Ready glow ── */
+  @keyframes rg {
+    0%,100%{ box-shadow: 0 0 0 rgba(34,197,94,0); }
+    50%    { box-shadow: 0 0 28px rgba(34,197,94,0.28); }
   }
-  .cursor-blink { animation: cursor_blink 1s step-end infinite; }
+  .ready-glow { animation: rg 2.2s ease-in-out infinite; }
 
-  /* ─── Glow pulse on ready state ─── */
-  @keyframes glow_pulse_green {
-    0%, 100% { box-shadow: 0 0 0px rgba(34, 197, 94, 0); }
-    50%       { box-shadow: 0 0 24px rgba(34, 197, 94, 0.35); }
-  }
-  .ready-glow { animation: glow_pulse_green 2s ease-in-out infinite; }
+  /* ── Page appear ── */
+  @keyframes page_in { 0%{opacity:0;transform:scale(0.96);} 100%{opacity:1;transform:scale(1);} }
+  .page-in { animation: page_in 0.5s ease-out forwards; }
 
-  .anim-fade-up { animation: fade_up 0.8s ease-out forwards; opacity: 0; }
-  .shimmer-text { background-size: 200% auto; animation: shimmer_text 5s linear infinite; }
-  .group:hover .icon-rotate { animation: rotate_icon 0.7s cubic-bezier(0.4, 0, 0.2, 1); }
+  /* ── Bar enter ── */
+  @keyframes bar_in { 0%{opacity:0;transform:translateY(-5px);} 100%{opacity:1;transform:translateY(0);} }
+  .bar-in { animation: bar_in 0.4s ease-out forwards; }
 
-  .premium-mesh {
-    background: radial-gradient(circle at 50% 50%, #0a0a2e 0%, #030014 100%);
-    background-size: 200% 200%;
-    animation: mesh_flow 15s ease infinite;
-  }
-
-  .grid-overlay {
-    background-image: linear-gradient(rgba(6, 182, 212, 0.05) 1px, transparent 1px),
-                      linear-gradient(90deg, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
-    background-size: 50px 50px;
-    mask-image: radial-gradient(ellipse at center, black, transparent 85%);
-  }
-
-  .glow-blob {
-    mix-blend-mode: screen;
-    filter: blur(120px);
-    position: absolute;
-    border-radius: 50%;
-    opacity: 0.5;
-    animation: float_amb 10s ease-in-out infinite;
-  }
-
-  .float-element { animation: float_amb 6s ease-in-out infinite; }
-
-  /* ─── Premium card hover glow ─── */
-  .card-hover-glow:hover {
-    box-shadow: 0 0 40px rgba(6, 182, 212, 0.08), 0 0 80px rgba(99, 102, 241, 0.05);
-  }
-
-  /* ─── Noise texture overlay ─── */
-  .noise-overlay::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
-    pointer-events: none;
-    z-index: 1;
-    border-radius: inherit;
-  }
-
-  /* ─── Stat card shine ─── */
-  @keyframes stat_shine {
-    0%   { transform: translateX(-100%) skewX(-20deg); }
-    100% { transform: translateX(250%) skewX(-20deg); }
-  }
+  /* ── Stat card sweep ── */
+  @keyframes sweep { 0%{transform:translateX(-100%) skewX(-15deg);} 100%{transform:translateX(250%) skewX(-15deg);} }
+  .stat-card { position: relative; overflow: hidden; }
   .stat-card::after {
-    content: '';
-    position: absolute;
-    top: 0; left: 0;
-    width: 40%;
-    height: 100%;
-    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-    transform: translateX(-100%) skewX(-20deg);
-    transition: none;
+    content:''; position:absolute; top:0; left:0; width:35%; height:100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+    transform: translateX(-100%) skewX(-15deg);
   }
-  .stat-card:hover::after {
-    animation: stat_shine 0.6s ease-out forwards;
+  .stat-card:hover::after { animation: sweep 0.55s ease-out forwards; }
+
+  /* ── Section vibe gradient (subtle, static) ── */
+  .vibe-cyan   { background: radial-gradient(ellipse 60% 40% at 15% 50%, rgba(6,182,212,0.06) 0%, transparent 100%); }
+  .vibe-purple { background: radial-gradient(ellipse 60% 40% at 85% 50%, rgba(168,85,247,0.06) 0%, transparent 100%); }
+  .vibe-blue   { background: radial-gradient(ellipse 80% 50% at 50% 50%, rgba(59,130,246,0.05) 0%, transparent 100%); }
+
+  /* ── Premium card border glow on hover ── */
+  .card-glow { transition: box-shadow 0.4s ease, border-color 0.4s ease; }
+  .card-glow:hover {
+    box-shadow: 0 0 0 1px rgba(6,182,212,0.2), 0 8px 48px rgba(6,182,212,0.07);
+  }
+
+  /* ── Mobile adjustments ── */
+  @media (max-width: 768px) {
+    .hero-blob { width: 260px; height: 260px; filter: blur(50px); }
+    .section-pad { padding: 2rem; }
   }
 `;
 
+/* ─────────────── Translation object ─────────────── */
 const t = {
   en: {
     pill: "🚀 THE FUTURE OF CAMPUS LIFE IS HERE",
@@ -219,8 +211,6 @@ const t = {
     coachTitle: "Running a Coaching Center or Institution?",
     coachDesc: "You focus on teaching, we handle the rest. Get a complete web solution to manage your students, track exams, and automate tasks.",
     coachBtn: "View Solutions",
-    reviewTitle: "Loved by thousands of students",
-    reviewDesc: "See how CampusVaiya is changing the academic landscape.",
     ctaTitle: "Ready to transform your academic journey?",
     ctaDesc: "Join thousands of students and educators who are already using CampusVaiya.",
     ctaBtn: "Get Started Now — It's Free",
@@ -258,8 +248,6 @@ const t = {
     coachTitle: "নিজস্ব কোচিং বা প্রতিষ্ঠান চালাচ্ছেন?",
     coachDesc: "আপনি শুধু পড়ানোতে ফোকাস করুন। স্টুডেন্ট ম্যানেজমেন্ট, পরীক্ষা ট্র্যাকিং ও রুটিন অটোমেট করার জন্য নিন সম্পূর্ণ সল্যুশন।",
     coachBtn: "সল্যুশন দেখুন",
-    reviewTitle: "হাজারো শিক্ষার্থীর ভরসা",
-    reviewDesc: "দেখুন CampusVaiya কীভাবে শিক্ষাজীবন সহজ করছে।",
     ctaTitle: "একাডেমিক জার্নি পরিবর্তন করতে প্রস্তুত?",
     ctaDesc: "হাজারো শিক্ষার্থী ও শিক্ষকের সাথে যুক্ত হও, যারা ইতোমধ্যেই CampusVaiya ব্যবহার করছে।",
     ctaBtn: "এখনই শুরু করো — একদম ফ্রি",
@@ -270,291 +258,316 @@ const t = {
   }
 };
 
-/* ─────────────────────────────────────────────────────────
-   Three-Color Convergence Background Canvas Component
-   Three blobs (cyan from left, purple from right, blue from top)
-   converge to the centre every 8 seconds, merge into white-violet,
-   then collapse and scatter back to their origin sides.
-───────────────────────────────────────────────────────── */
-const ConvergenceBackground = () => {
-  const CYCLE = 8000;
+/* ────────────────────────────────────────────────────────────────────
+ �
+   HeroBackground — three-color convergence ONLY for the hero viewport
+   Blobs live in their own composited layer (will-change: transform).
+   NO mix-blend-mode (too expensive), NO massive blur on animated els.
+   Colors merge naturally via overlapping semi-transparent radial fills.
+───────────────────────────────────────────────────────────────────── */
+const HeroBackground = () => (
+  /* Strictly 100vh, pointer-events:none so it never blocks interaction */
+  <div
+    aria-hidden
+    style={{
+      position: 'absolute',
+      inset: 0,
+      height: '100%',
+      overflow: 'hidden',
+      pointerEvents: 'none',
+      zIndex: 0,
+    }}
+  >
+    {/* Subtle dot grid */}
+    <div className="dot-grid" style={{ position: 'absolute', inset: 0, opacity: 0.45 }} />
 
-  return (
+    {/* Convergence anchor — centre of hero */}
     <div
-      className="absolute inset-0 z-0 overflow-hidden pointer-events-none"
-      style={{ isolation: 'isolate' }}
+      style={{
+        position: 'absolute',
+        top: '46%',
+        left: '50%',
+        width: 0,
+        height: 0,
+      }}
     >
-      {/* centre anchor – blobs converge here */}
+      {/* CYAN blob — enters from left */}
       <div
-        className="absolute"
-        style={{
-          top: '42%',
-          left: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 1,
-          height: 1,
-        }}
-      >
-        {/* Blob 1 – Cyan – comes from the left */}
-        <div
-          className="color-blob-left"
-          style={{
-            position: 'absolute',
-            width: 520,
-            height: 520,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(6,182,212,0.85) 0%, rgba(6,182,212,0) 70%)',
-            mixBlendMode: 'screen',
-            filter: 'blur(90px)',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-          }}
-        />
-
-        {/* Blob 2 – Purple – comes from the right */}
-        <div
-          className="color-blob-right"
-          style={{
-            position: 'absolute',
-            width: 520,
-            height: 520,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(168,85,247,0.85) 0%, rgba(168,85,247,0) 70%)',
-            mixBlendMode: 'screen',
-            filter: 'blur(90px)',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-          }}
-        />
-
-        {/* Blob 3 – Blue – comes from the top */}
-        <div
-          className="color-blob-top"
-          style={{
-            position: 'absolute',
-            width: 520,
-            height: 520,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(59,130,246,0.85) 0%, rgba(59,130,246,0) 70%)',
-            mixBlendMode: 'screen',
-            filter: 'blur(90px)',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-          }}
-        />
-
-        {/* Collapse flash – bright burst when all three merge */}
-        <div
-          className="collapse-flash"
-          style={{
-            position: 'absolute',
-            width: 300,
-            height: 300,
-            borderRadius: '50%',
-            background: 'radial-gradient(circle, rgba(200,180,255,0.95) 0%, rgba(139,92,246,0.5) 40%, transparent 70%)',
-            mixBlendMode: 'screen',
-            filter: 'blur(50px)',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%) scale(0.1)',
-            opacity: 0,
-          }}
-        />
-      </div>
-
-      {/* Ambient static glows that stay as background depth */}
-      <div
+        className="blob-left hero-blob"
         style={{
           position: 'absolute',
-          bottom: '-10%',
-          right: '10%',
-          width: 500,
-          height: 500,
+          width: 420,
+          height: 420,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(99,102,241,0.4) 0%, transparent 70%)',
-          mixBlendMode: 'screen',
-          filter: 'blur(130px)',
-          animation: 'float_amb 14s ease-in-out infinite',
+          background: 'radial-gradient(circle, rgba(6,182,212,0.55) 0%, rgba(6,182,212,0.18) 45%, transparent 70%)',
+          filter: 'blur(55px)',
+          transform: 'translate(-50%,-50%) translateZ(0)',
         }}
       />
+      {/* PURPLE blob — enters from right */}
       <div
+        className="blob-right hero-blob"
         style={{
           position: 'absolute',
-          top: '60%',
-          left: '-5%',
-          width: 400,
-          height: 400,
+          width: 420,
+          height: 420,
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(6,182,212,0.25) 0%, transparent 70%)',
-          mixBlendMode: 'screen',
-          filter: 'blur(130px)',
-          animation: 'float_amb 18s ease-in-out infinite',
-          animationDelay: '-6s',
+          background: 'radial-gradient(circle, rgba(168,85,247,0.55) 0%, rgba(168,85,247,0.18) 45%, transparent 70%)',
+          filter: 'blur(55px)',
+          transform: 'translate(-50%,-50%) translateZ(0)',
+        }}
+      />
+      {/* BLUE blob — enters from top */}
+      <div
+        className="blob-top hero-blob"
+        style={{
+          position: 'absolute',
+          width: 380,
+          height: 380,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(59,130,246,0.50) 0%, rgba(59,130,246,0.15) 45%, transparent 70%)',
+          filter: 'blur(55px)',
+          transform: 'translate(-50%,-50%) translateZ(0)',
+        }}
+      />
+      {/* Merge flash — bright burst at convergence point */}
+      <div
+        className="blob-flash"
+        style={{
+          position: 'absolute',
+          width: 260,
+          height: 260,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(200,170,255,0.85) 0%, rgba(139,92,246,0.40) 50%, transparent 70%)',
+          filter: 'blur(38px)',
+          top: 0,
+          left: 0,
+          transform: 'translate(-50%,-50%) scale(0.05) translateZ(0)',
+          opacity: 0,
         }}
       />
     </div>
-  );
-};
 
-/* ─────────────────────────────────────────────────────────
-   Vision Terminal Component
-   • Rotates (3-D flip) on each status change
-   • When status contains "ready", shows browser-like "loaded page"
-   • Otherwise shows skeleton loading UI
-───────────────────────────────────────────────────────── */
+    {/* Soft dark vignette at bottom so content below isn't tinted */}
+    <div
+      style={{
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: '35%',
+        background: 'linear-gradient(to bottom, transparent, #030014)',
+        pointerEvents: 'none',
+      }}
+    />
+  </div>
+);
+
+/* ─────────────────────────────────────────────────────────────────────
+   VisionTerminal — flips on each status change
+   Loading → skeleton UI | Ready → CampusVaiya home page mini-mockup
+   The "loaded" screen shows ONLY content that exists on the home page.
+───────────────────────────────────────────────────────────────────── */
 const VisionTerminal = ({ visionStatus }) => {
-  const isReady = visionStatus.toLowerCase().includes('ready');
-  const [flipping, setFlipping] = useState(false);
-  const prevStatus = useRef(visionStatus);
   const [displayStatus, setDisplayStatus] = useState(visionStatus);
-  const [showContent, setShowContent] = useState(false);
-  const [progressKey, setProgressKey] = useState(0);
+  const [isFlipping, setIsFlipping] = useState(false);
+  const [showPage, setShowPage] = useState(false);
+  const [progKey, setProgKey] = useState(0);
+  const prevRef = useRef(visionStatus);
 
   useEffect(() => {
-    if (visionStatus !== prevStatus.current) {
-      setFlipping(true);
-      const t1 = setTimeout(() => {
-        setDisplayStatus(visionStatus);
-        setShowContent(false);
-        prevStatus.current = visionStatus;
-      }, 350);
-      const t2 = setTimeout(() => {
-        setFlipping(false);
-        if (visionStatus.toLowerCase().includes('ready')) {
-          setProgressKey(k => k + 1);
-          setTimeout(() => setShowContent(true), 600);
-        }
-      }, 700);
-      return () => { clearTimeout(t1); clearTimeout(t2); };
-    }
+    if (visionStatus === prevRef.current) return;
+    prevRef.current = visionStatus;
+
+    setIsFlipping(true);
+    const swapTimer = setTimeout(() => {
+      setDisplayStatus(visionStatus);
+      setShowPage(false);
+    }, 300);
+    const endTimer = setTimeout(() => {
+      setIsFlipping(false);
+      if (visionStatus.toLowerCase().includes('ready')) {
+        setProgKey(k => k + 1);
+        setTimeout(() => setShowPage(true), 550);
+      }
+    }, 620);
+    return () => { clearTimeout(swapTimer); clearTimeout(endTimer); };
   }, [visionStatus]);
 
-  const isDisplayReady = displayStatus.toLowerCase().includes('ready');
+  const isReady = displayStatus.toLowerCase().includes('ready');
 
   return (
     <div
-      className={`relative z-10 p-10 rounded-3xl border backdrop-blur-2xl shadow-2xl transition-all duration-700 noise-overlay ${
-        isDisplayReady
-          ? 'bg-slate-900/85 border-green-500/30 ready-glow'
-          : 'bg-slate-900/80 border-white/10'
-      } ${flipping ? 'terminal-flip' : ''}`}
-      style={{ transformStyle: 'preserve-3d' }}
+      className={`relative rounded-3xl border shadow-2xl overflow-hidden${isReady ? ' ready-glow' : ''}${isFlipping ? ' term-flip' : ''}`}
+      style={{
+        background: 'rgba(5,5,26,0.92)',
+        borderColor: isReady ? 'rgba(34,197,94,0.30)' : 'rgba(255,255,255,0.08)',
+        padding: '1.5rem',
+        transition: 'border-color 0.6s ease',
+      }}
     >
-      {/* Window chrome */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex gap-2">
-          <div className={`w-3 h-3 rounded-full transition-colors duration-500 ${isDisplayReady ? 'bg-green-500' : 'bg-red-500/50'}`}></div>
-          <div className={`w-3 h-3 rounded-full transition-colors duration-500 ${isDisplayReady ? 'bg-green-400/70' : 'bg-yellow-500/50'}`}></div>
-          <div className={`w-3 h-3 rounded-full transition-colors duration-500 ${isDisplayReady ? 'bg-green-300/70' : 'bg-green-500/50'}`}></div>
+      {/* Title bar */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', gap: '6px' }}>
+          {[
+            isReady ? '#22c55e' : 'rgba(239,68,68,0.5)',
+            isReady ? 'rgba(134,239,172,0.7)' : 'rgba(234,179,8,0.5)',
+            isReady ? 'rgba(187,247,208,0.6)' : 'rgba(34,197,94,0.5)',
+          ].map((c, i) => (
+            <span key={i} style={{ width: 11, height: 11, borderRadius: '50%', background: c, display: 'inline-block', transition: 'background 0.5s' }} />
+          ))}
         </div>
-        {isDisplayReady && (
-          <span className="bar-enter text-[10px] text-green-400 font-mono tracking-widest uppercase">● Live</span>
+        {isReady && (
+          <span className="bar-in" style={{ fontSize: '9px', color: '#4ade80', fontFamily: 'monospace', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
+            ● Live
+          </span>
         )}
       </div>
 
-      {/* ── Terminal command line ── */}
-      <div className="py-5 px-5 rounded-2xl bg-black/50 border border-white/5 font-mono text-sm mb-6">
-        <div className="flex items-center gap-2">
-          <span className="text-cyan-400 select-none">$</span>
-          <span className={`transition-colors duration-500 ${isDisplayReady ? 'text-green-400' : 'text-slate-300'}`}>
-            {displayStatus}
-          </span>
-          {!isDisplayReady && (
-            <span className="cursor-blink inline-block w-2 h-4 bg-cyan-500 ml-1"></span>
-          )}
-          {isDisplayReady && (
-            <span className="ml-2 text-green-500 text-xs font-bold">✓</span>
-          )}
-        </div>
+      {/* Command line */}
+      <div style={{
+        padding: '0.75rem 1rem',
+        borderRadius: '12px',
+        background: 'rgba(0,0,0,0.5)',
+        border: '1px solid rgba(255,255,255,0.05)',
+        fontFamily: 'monospace',
+        fontSize: '13px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        marginBottom: '1rem',
+      }}>
+        <span style={{ color: '#22d3ee', userSelect: 'none' }}>$</span>
+        <span style={{ color: isReady ? '#4ade80' : '#cbd5e1', transition: 'color 0.5s', flex: 1, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
+          {displayStatus}
+        </span>
+        {!isReady && <span className="cur" style={{ display: 'inline-block', width: 8, height: 14, background: '#22d3ee', borderRadius: 2, flexShrink: 0 }} />}
+        {isReady && <span style={{ color: '#4ade80', fontSize: '11px', fontWeight: 700, flexShrink: 0 }}>✓</span>}
       </div>
 
-      {/* ── Loading content area ── */}
-      {!isDisplayReady ? (
-        /* Skeleton loading state */
-        <div className="space-y-4">
+      {/* Content area */}
+      {!isReady ? (
+        /* ── Skeleton loading state ── */
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {/* Progress bar */}
-          <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-cyan-500 via-blue-500 to-purple-500 rounded-full progress-bar" key={progressKey}></div>
+          <div style={{ height: 3, borderRadius: 99, background: 'rgba(255,255,255,0.05)', overflow: 'hidden' }}>
+            <div
+              className="prog-bar"
+              key={progKey}
+              style={{
+                height: '100%',
+                background: 'linear-gradient(90deg, #06b6d4, #6366f1, #a855f7)',
+                borderRadius: 99,
+                width: 0,
+              }}
+            />
           </div>
-
-          {/* Browser address skeleton */}
-          <div className="flex items-center gap-3 p-3 bg-white/[0.03] rounded-xl border border-white/5">
-            <div className="skeleton-shine w-4 h-4 flex-shrink-0 rounded-sm"></div>
-            <div className="skeleton-shine flex-1 h-3"></div>
-            <div className="skeleton-shine w-8 h-3 flex-shrink-0"></div>
+          {/* Address bar skeleton */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', background: 'rgba(255,255,255,0.02)', borderRadius: 10, border: '1px solid rgba(255,255,255,0.04)' }}>
+            <div className="sk" style={{ width: 14, height: 14, flexShrink: 0, borderRadius: 4 }} />
+            <div className="sk" style={{ flex: 1, height: 10 }} />
+            <div className="sk" style={{ width: 32, height: 10, flexShrink: 0 }} />
           </div>
-
-          {/* Website skeleton blocks */}
-          <div className="space-y-3 pt-1">
-            <div className="skeleton-shine h-5 w-3/5 rounded"></div>
-            <div className="skeleton-shine h-3 w-full"></div>
-            <div className="skeleton-shine h-3 w-4/5"></div>
-            <div className="skeleton-shine h-3 w-2/3"></div>
+          {/* Content skeletons */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+            <div className="sk" style={{ height: 16, width: '62%' }} />
+            <div className="sk" style={{ height: 10, width: '100%' }} />
+            <div className="sk" style={{ height: 10, width: '80%' }} />
+            <div className="sk" style={{ height: 10, width: '65%' }} />
           </div>
-          <div className="grid grid-cols-3 gap-3 pt-2">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="skeleton-shine h-14 rounded-xl"></div>
-            ))}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 4 }}>
+            {[1, 2, 3].map(i => <div key={i} className="sk" style={{ height: 48, borderRadius: 10 }} />)}
           </div>
-
-          <div className="mt-4 text-[10px] text-slate-500 text-center uppercase tracking-[0.3em]">
+          <div style={{ textAlign: 'center', fontSize: 9, color: 'rgba(148,163,184,0.5)', textTransform: 'uppercase', letterSpacing: '0.25em', marginTop: 4 }}>
             Secure Neural Link Establishing...
           </div>
         </div>
       ) : (
-        /* ── Loaded "campusvaiya is ready" website mockup ── */
-        <div className={showContent ? 'page-appear' : 'opacity-0'}>
+        /* ── CampusVaiya loaded page mockup ── */
+        <div className={showPage ? 'page-in' : ''} style={{ opacity: showPage ? 1 : 0 }}>
           {/* Browser bar */}
-          <div className="bar-enter flex items-center gap-2 p-2.5 bg-slate-800/80 rounded-xl border border-white/10 mb-4">
-            <div className="flex gap-1.5 ml-1">
-              <div className="w-2 h-2 rounded-full bg-slate-600"></div>
-              <div className="w-2 h-2 rounded-full bg-slate-600"></div>
+          <div className="bar-in" style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '7px 10px',
+            background: 'rgba(15,23,42,0.8)',
+            borderRadius: 10,
+            border: '1px solid rgba(255,255,255,0.08)',
+            marginBottom: 10,
+          }}>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'rgba(100,116,139,0.6)', display: 'inline-block' }} />
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'rgba(100,116,139,0.6)', display: 'inline-block' }} />
             </div>
-            <div className="flex-1 mx-2 px-3 py-1 rounded-md bg-slate-900/80 text-[10px] font-mono text-slate-400 flex items-center gap-2">
-              <span className="text-green-400">🔒</span>
+            <div style={{
+              flex: 1, padding: '3px 10px', borderRadius: 7,
+              background: 'rgba(0,0,0,0.5)',
+              fontSize: 10, fontFamily: 'monospace',
+              color: 'rgba(148,163,184,0.8)',
+              display: 'flex', alignItems: 'center', gap: 5,
+            }}>
+              <span style={{ color: '#4ade80' }}>🔒</span>
               <span>campusvaiya.app</span>
             </div>
           </div>
 
-          {/* Mini "website" preview */}
-          <div className="rounded-xl bg-gradient-to-br from-slate-900 to-[#030014] border border-white/10 overflow-hidden">
-            {/* Nav bar */}
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/5 bg-black/20">
-              <div className="text-[11px] font-black text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-purple-400">CampusVaiya</div>
-              <div className="flex gap-3">
-                {['Home', 'Tools', 'Feed'].map(label => (
-                  <span key={label} className="text-[9px] text-slate-400 hover:text-cyan-400 cursor-pointer transition-colors">{label}</span>
+          {/* Mini home page preview */}
+          <div style={{
+            borderRadius: 12,
+            background: 'linear-gradient(135deg, #0a0a2e 0%, #030014 100%)',
+            border: '1px solid rgba(255,255,255,0.08)',
+            overflow: 'hidden',
+          }}>
+            {/* Nav */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '8px 12px',
+              borderBottom: '1px solid rgba(255,255,255,0.04)',
+              background: 'rgba(0,0,0,0.2)',
+            }}>
+              <span style={{
+                fontSize: 11, fontWeight: 900,
+                background: 'linear-gradient(90deg, #22d3ee, #818cf8)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}>CampusVaiya</span>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {['Home', 'Tools', 'Community'].map(l => (
+                  <span key={l} style={{ fontSize: 8, color: 'rgba(148,163,184,0.7)' }}>{l}</span>
                 ))}
               </div>
             </div>
 
-            {/* Hero area */}
-            <div className="p-4 space-y-2">
-              <div className="text-[11px] font-black text-white leading-tight">Level up your campus life ✦</div>
-              <div className="text-[9px] text-slate-400 leading-relaxed">AI tools · Senior mentors · Global network</div>
-              <div className="flex gap-2 pt-1">
-                <div className="px-3 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-blue-600 text-[9px] font-bold text-white">Get Started</div>
-                <div className="px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[9px] text-slate-300">Explore</div>
+            {/* Hero mini */}
+            <div style={{ padding: '10px 12px 6px', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+              <div style={{ fontSize: 11, fontWeight: 900, color: '#fff', marginBottom: 3, lineHeight: 1.3 }}>
+                Level up your campus life ✦
+              </div>
+              <div style={{ fontSize: 8, color: 'rgba(148,163,184,0.7)', marginBottom: 8 }}>
+                AI tools · Senior mentors · Global network
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <span style={{ fontSize: 8, fontWeight: 700, color: '#fff', padding: '4px 10px', borderRadius: 99, background: 'linear-gradient(90deg, #06b6d4, #6366f1)' }}>Join Community</span>
+                <span style={{ fontSize: 8, color: 'rgba(203,213,225,0.8)', padding: '4px 10px', borderRadius: 99, background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>Explore</span>
               </div>
             </div>
 
-            {/* Stats row */}
-            <div className="grid grid-cols-4 gap-2 px-4 pb-4">
+            {/* Stats mini */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, padding: '8px 12px 10px' }}>
               {[{ v: '10K+', l: 'Students' }, { v: '50K+', l: 'Reports' }, { v: '500+', l: 'Seniors' }, { v: '5K+', l: 'CGPAs' }].map((s, i) => (
-                <div key={i} className="text-center p-2 rounded-lg bg-white/[0.03] border border-white/5">
-                  <div className="text-[10px] font-black text-cyan-400">{s.v}</div>
-                  <div className="text-[8px] text-slate-500">{s.l}</div>
+                <div key={i} style={{ textAlign: 'center', padding: '5px 2px', borderRadius: 8, background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div style={{ fontSize: 9, fontWeight: 900, color: '#22d3ee' }}>{s.v}</div>
+                  <div style={{ fontSize: 7, color: 'rgba(100,116,139,0.9)' }}>{s.l}</div>
                 </div>
               ))}
             </div>
           </div>
 
-          <div className="mt-4 flex items-center justify-center gap-2">
-            <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-            <span className="text-[10px] text-green-400 font-mono tracking-widest uppercase font-bold">campusvaiya is ready</span>
+          {/* Ready indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 12 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#4ade80', display: 'inline-block', animation: 'cblink 1.5s ease-in-out infinite' }} />
+            <span style={{ fontSize: 9, color: '#4ade80', fontFamily: 'monospace', textTransform: 'uppercase', letterSpacing: '0.2em', fontWeight: 700 }}>
+              campusvaiya is ready
+            </span>
           </div>
         </div>
       )}
@@ -562,6 +575,9 @@ const VisionTerminal = ({ visionStatus }) => {
   );
 };
 
+/* ─────────────────────────────────────────────────────────────────────
+   Main Home Component
+───────────────────────────────────────────────────────────────────── */
 const Home = () => {
   const { user } = useContext(AuthContext);
   const isLoggedIn = !!user;
@@ -582,7 +598,7 @@ const Home = () => {
     const interval = setInterval(() => {
       setVisionStatus(statuses[i]);
       i = (i + 1) % statuses.length;
-    }, 3500);
+    }, 3800);
     return () => clearInterval(interval);
   }, []);
 
@@ -590,235 +606,498 @@ const Home = () => {
     <>
       <style>{customStyles}</style>
 
-      <div className="relative min-h-screen flex flex-col items-center overflow-hidden premium-mesh">
-
-        {/* ── Cyber Grid Background ── */}
-        <div className="absolute inset-0 z-0 grid-overlay opacity-40"></div>
-
-        {/* ── Three-Color Convergence Animation ── */}
-        <ConvergenceBackground />
-
-        {/* ── Subtle static ambient glows for depth ── */}
-        <div className="glow-blob bg-blue-600 top-[-10%] left-[10%] w-[600px] h-[600px]" style={{ animationDuration: '15s', opacity: 0.2 }}></div>
-        <div className="glow-blob bg-indigo-600 bottom-[-10%] right-[10%] w-[600px] h-[600px]" style={{ animationDuration: '14s', opacity: 0.2 }}></div>
+      <div className="page-bg" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', overflowX: 'hidden', position: 'relative' }}>
 
         {/* ── Language Toggle ── */}
         <button
           onClick={() => setLang(isBn ? 'en' : 'bn')}
-          className="fixed top-24 right-6 z-50 flex items-center gap-2 px-4 py-2 rounded-full bg-slate-900/60 border border-white/10 backdrop-blur-xl text-sm font-bold text-white hover:border-cyan-500 transition-all duration-300 shadow-2xl"
+          style={{
+            position: 'fixed', top: '5.5rem', right: '1.5rem', zIndex: 50,
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '7px 16px', borderRadius: 99,
+            background: 'rgba(5,5,26,0.7)',
+            border: '1px solid rgba(255,255,255,0.10)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+            color: '#fff', fontSize: 13, fontWeight: 700,
+            cursor: 'pointer',
+            transition: 'border-color 0.25s',
+          }}
+          onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(6,182,212,0.5)'}
+          onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.10)'}
         >
-          <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" /></svg>
-          {isBn ? 'English' : 'বাংলা'}
+          <svg width="16" height="16" fill="none" stroke="#22d3ee" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129" />
+          </svg>
+ �        {isBn ? 'English' : 'বাংলা'}
         </button>
 
-        <div className="relative z-10 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 pt-24 pb-28">
+        {/* ════════════════════════════════════════════════════════
+            HERO SECTION — convergence animation lives here only
+        ════════════════════════════════════════════════════════ */}
+        <div
+          style={{
+            position: 'relative',
+            width: '100%',
+            minHeight: '100vh',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            overflow: 'hidden',
+          }}
+        >
+          <HeroBackground />
 
-          {/* ── Hero Section ── */}
-          <div className="text-center space-y-6 mt-16 md:mt-20">
-            <div className="inline-block px-5 py-2 rounded-full border border-cyan-500/30 bg-cyan-500/5 backdrop-blur-xl anim-fade-up" style={{ animationDelay: '0.1s' }}>
-              <span className="flex items-center gap-2 text-[10px] font-black text-cyan-400 tracking-[0.2em] uppercase">
-                {txt.pill}
-              </span>
-            </div>
+          <div style={{ position: 'relative', zIndex: 1, width: '100%', maxWidth: 1200, margin: '0 auto', padding: '8rem 1.5rem 5rem' }}>
+            <div style={{ textAlign: 'center' }}>
+              {/* Pill badge */}
+              <div
+                className="anim-fade-up"
+                style={{
+                  display: 'inline-block', marginBottom: '1.5rem',
+                  padding: '7px 20px', borderRadius: 99,
+                  border: '1px solid rgba(6,182,212,0.28)',
+                  background: 'rgba(6,182,212,0.05)',
+                  animationDelay: '0.1s',
+                }}
+              >
+                <span style={{ fontSize: 10, fontWeight: 900, color: '#22d3ee', letterSpacing: '0.2em', textTransform: 'uppercase' }}>
+                  {txt.pill}
+                </span>
+              </div>
 
-            <h1 className="text-5xl md:text-7xl lg:text-[5rem] font-black text-white tracking-tight leading-[1.05] anim-fade-up" style={{ animationDelay: '0.2s' }}>
-              {txt.heroTitle1} <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 shimmer-text">
-                CampusVaiya
-              </span>
-            </h1>
+              {/* Headline */}
+              <h1
+                className="anim-fade-up"
+                style={{
+                  fontSize: 'clamp(2.6rem, 7vw, 5rem)',
+                  fontWeight: 900,
+                  color: '#fff',
+                  letterSpacing: '-0.02em',
+                  lineHeight: 1.08,
+                  margin: '0 0 1.25rem',
+                  animationDelay: '0.2s',
+                }}
+              >
+                {txt.heroTitle1}
+                <br />
+                <span
+                  className="shimmer-text"
+                  style={{
+                    background: 'linear-gradient(90deg, #22d3ee, #6366f1, #a855f7, #22d3ee)',
+                    WebkitBackgroundClip: 'text',
+                    WebkitTextFillColor: 'transparent',
+                  }}
+                >
+                  CampusVaiya
+                </span>
+              </h1>
 
-            <p className="text-lg text-slate-400 max-w-2xl mx-auto font-medium leading-relaxed anim-fade-up" style={{ animationDelay: '0.3s' }}>
-              {txt.heroDesc}
-            </p>
+              {/* Subtext */}
+              <p
+                className="anim-fade-up"
+                style={{
+                  fontSize: 'clamp(1rem, 2vw, 1.125rem)',
+                  color: 'rgba(148,163,184,0.9)',
+                  maxWidth: 560,
+                  margin: '0 auto 2.5rem',
+                  lineHeight: 1.75,
+                  fontWeight: 500,
+                  animationDelay: '0.3s',
+                }}
+              >
+                {txt.heroDesc}
+              </p>
 
-            <div className="flex flex-col sm:flex-row justify-center gap-4 pt-8 anim-fade-up" style={{ animationDelay: '0.4s' }}>
-              {isLoggedIn ? (
-                <Link to="/dashboard" className="px-10 py-4 bg-gradient-to-r from-cyan-500 to-blue-600 text-white rounded-full font-bold transition-all duration-300 hover:scale-105 shadow-[0_0_30px_rgba(6,182,212,0.3)]">
-                  {txt.btnDash}
+              {/* CTAs */}
+              <div
+                className="anim-fade-up"
+                style={{
+                  display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '1rem',
+                  animationDelay: '0.4s',
+                }}
+              >
+                {isLoggedIn ? (
+                  <Link
+                    to="/dashboard"
+                    style={{
+                      padding: '14px 36px', borderRadius: 99,
+                      background: 'linear-gradient(90deg, #06b6d4, #6366f1)',
+                      color: '#fff', fontWeight: 700, fontSize: 15,
+                      boxShadow: '0 0 28px rgba(6,182,212,0.28)',
+                      transition: 'transform 0.2s, box-shadow 0.2s',
+                      display: 'inline-block',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.boxShadow = '0 0 40px rgba(6,182,212,0.4)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 0 28px rgba(6,182,212,0.28)'; }}
+                  >
+                    {txt.btnDash}
+                  </Link>
+                ) : (
+                  <Link
+                    to="/register"
+                    style={{
+                      padding: '14px 36px', borderRadius: 99,
+                      background: 'linear-gradient(90deg, #4f46e5, #7c3aed)',
+                      color: '#fff', fontWeight: 700, fontSize: 15,
+                      boxShadow: '0 0 28px rgba(79,70,229,0.28)',
+                      transition: 'transform 0.2s, box-shadow 0.2s',
+                      display: 'inline-block',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; }}
+                    onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; }}
+                  >
+                    {txt.btnJoin}
+                  </Link>
+                )}
+                <Link
+                  to="/tools"
+                  style={{
+                    padding: '14px 36px', borderRadius: 99,
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.10)',
+                    color: '#fff', fontWeight: 700, fontSize: 15,
+                    transition: 'transform 0.2s, background 0.2s',
+                    display: 'inline-block',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; }}
+                >
+                  {txt.btnExplore}
                 </Link>
-              ) : (
-                <Link to="/register" className="px-10 py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full font-bold transition-all duration-300 hover:scale-105 shadow-[0_0_30px_rgba(79,70,229,0.3)]">
-                  {txt.btnJoin}
-                </Link>
-              )}
-              <Link to="/tools" className="px-10 py-4 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md text-white rounded-full font-bold transition-all duration-300 hover:scale-105">
-                {txt.btnExplore}
-              </Link>
+              </div>
             </div>
           </div>
+        </div>
+
+        {/* ════════════════════════════════════════════════════════
+            REST OF PAGE — subtle color vibe only, no moving blurs
+        ════════════════════════════════════════════════════════ */}
+        <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto', padding: '0 1.5rem 7rem', position: 'relative', zIndex: 1 }}>
 
           {/* ── Stats Bar ── */}
-          <div className="mt-24 grid grid-cols-2 md:grid-cols-4 gap-6 anim-fade-up" style={{ animationDelay: '0.5s' }}>
+          <div
+            className="anim-fade-up"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))',
+              gap: '1rem',
+              marginTop: '-2rem',
+              animationDelay: '0.5s',
+            }}
+          >
             {[
               { label: txt.stat1, value: '10K+' },
               { label: txt.stat2, value: '50K+' },
               { label: txt.stat3, value: '500+' },
-              { label: txt.stat4, value: '5K+' }
+              { label: txt.stat4, value: '5K+' },
             ].map((stat, i) => (
-              <div key={i} className="stat-card relative text-center p-8 rounded-[2.5rem] bg-white/[0.03] border border-white/10 backdrop-blur-3xl hover:border-cyan-500/30 transition-all duration-500 group overflow-hidden card-hover-glow">
-                <div className="text-4xl font-black text-white group-hover:text-cyan-400 transition-colors">{stat.value}</div>
-                <div className="text-[10px] text-slate-500 uppercase font-bold tracking-[0.2em] mt-2">{stat.label}</div>
+              <div
+                key={i}
+                className="stat-card card-glow"
+                style={{
+                  textAlign: 'center',
+                  padding: '1.75rem 1rem',
+                  borderRadius: '1.75rem',
+                  background: 'rgba(255,255,255,0.025)',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  cursor: 'default',
+                  transition: 'border-color 0.3s',
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = 'rgba(6,182,212,0.25)'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'rgba(255,255,255,0.08)'}
+              >
+                <div style={{ fontSize: 32, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{stat.value}</div>
+                <div style={{ fontSize: 9, color: 'rgba(100,116,139,0.9)', textTransform: 'uppercase', letterSpacing: '0.18em', fontWeight: 700, marginTop: 8 }}>{stat.label}</div>
               </div>
             ))}
           </div>
 
           {/* ── Features Grid ── */}
-          <div className="mt-32 grid grid-cols-1 md:grid-cols-3 gap-8">
-            {[
-              { t: txt.feat1Title, d: txt.feat1Desc, icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", color: "cyan" },
-              { t: txt.feat2Title, d: txt.feat2Desc, icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z", color: "purple" },
-              { t: txt.feat3Title, d: txt.feat3Desc, icon: "M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z", color: "blue" }
-            ].map((f, i) => (
-              <div key={i} className="group p-10 rounded-[2.5rem] bg-white/[0.02] border border-white/5 hover:border-white/20 hover:bg-white/[0.04] transition-all duration-500 anim-fade-up card-hover-glow" style={{ animationDelay: `${0.6 + i * 0.1}s` }}>
-                <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-8 bg-${f.color}-500/10 border border-${f.color}-500/20 icon-rotate`}>
-                  <svg className={`w-8 h-8 text-${f.color}-400`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={f.icon} /></svg>
+          <div style={{ marginTop: '6rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '1.5rem' }}>
+              {[
+                { t: txt.feat1Title, d: txt.feat1Desc, icon: "M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z", clr: '#22d3ee', bg: 'rgba(6,182,212,0.08)', border: 'rgba(6,182,212,0.18)' },
+                { t: txt.feat2Title, d: txt.feat2Desc, icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z", clr: '#c084fc', bg: 'rgba(168,85,247,0.08)', border: 'rgba(168,85,247,0.18)' },
+                { t: txt.feat3Title, d: txt.feat3Desc, icon: "M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z", clr: '#818cf8', bg: 'rgba(99,102,241,0.08)', border: 'rgba(99,102,241,0.18)' },
+              ].map((f, i) => (
+                <div
+                  key={i}
+                  className={`anim-fade-up card-glow`}
+                  style={{
+                    padding: '2.25rem 2rem',
+                    borderRadius: '2rem',
+                    background: 'rgba(255,255,255,0.018)',
+                    border: '1px solid rgba(255,255,255,0.06)',
+                    transition: 'border-color 0.3s, background 0.3s',
+                    animationDelay: `${0.6 + i * 0.1}s`,
+                    cursor: 'default',
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.14)'; e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(255,255,255,0.06)'; e.currentTarget.style.background = 'rgba(255,255,255,0.018)'; }}
+                >
+                  <div style={{ width: 56, height: 56, borderRadius: 16, background: f.bg, border: `1px solid ${f.border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1.5rem' }}>
+                    <svg width="26" height="26" fill="none" stroke={f.clr} viewBox="0 0 24 24" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d={f.icon} />
+                    </svg>
+                  </div>
+                  <h3 style={{ fontSize: '1.2rem', fontWeight: 800, color: '#fff', marginBottom: '0.75rem' }}>{f.t}</h3>
+                  <p style={{ fontSize: '0.95rem', color: 'rgba(148,163,184,0.85)', lineHeight: 1.7 }}>{f.d}</p>
                 </div>
-                <h3 className="text-2xl font-bold text-white mb-4">{f.t}</h3>
-                <p className="text-slate-400 leading-relaxed">{f.d}</p>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
-          {/* ── Vision Section with Rotating Terminal ── */}
-          <div className="mt-40 flex flex-col lg:flex-row items-center gap-16 p-12 rounded-[3rem] bg-white/[0.01] border border-white/5 anim-fade-up">
-            <div className="flex-1 space-y-6">
-              <h2 className="text-3xl md:text-5xl font-black text-white">{txt.visionTitle}</h2>
-              <p className="text-slate-400 text-lg leading-relaxed">{txt.visionDesc}</p>
-              <ul className="space-y-4">
-                {['Personalized AI Roadmaps', 'Secure Cloud Data Management', 'Direct University Network'].map((item, index) => (
-                  <li key={index} className="flex items-center gap-3 text-cyan-400 font-bold">
-                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 flex items-center justify-center text-[10px]">✓</span>
+          {/* ── Vision Section with Terminal ── */}
+          <div
+            className="vibe-cyan"
+            style={{
+              marginTop: '7rem',
+              display: 'flex',
+              flexWrap: 'wrap',
+              alignItems: 'center',
+              gap: '3rem',
+              padding: '3rem 2.5rem',
+              borderRadius: '2.5rem',
+              background: 'rgba(255,255,255,0.012)',
+              border: '1px solid rgba(255,255,255,0.06)',
+            }}
+          >
+            {/* Text side */}
+            <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              <h2 style={{ fontSize: 'clamp(1.75rem, 4vw, 2.75rem)', fontWeight: 900, color: '#fff', lineHeight: 1.15 }}>{txt.visionTitle}</h2>
+              <p style={{ fontSize: '1rem', color: 'rgba(148,163,184,0.85)', lineHeight: 1.75 }}>{txt.visionDesc}</p>
+              <ul style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', margin: 0, padding: 0, listStyle: 'none' }}>
+                {['Personalized AI Roadmaps', 'Secure Cloud Data Management', 'Direct University Network'].map((item, idx) => (
+                  <li key={idx} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', color: '#22d3ee', fontWeight: 700, fontSize: '0.95rem' }}>
+                    <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'rgba(6,182,212,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, flexShrink: 0 }}>✓</span>
                     {item}
                   </li>
                 ))}
               </ul>
             </div>
-            <div className="flex-1 relative">
-              <div className="w-full aspect-square bg-gradient-to-br from-cyan-500/20 to-purple-500/20 rounded-full blur-3xl absolute animate-pulse"></div>
+            {/* Terminal side */}
+            <div style={{ flex: '1 1 300px', position: 'relative' }}>
+              <div style={{
+                position: 'absolute', inset: '-10%',
+                background: 'radial-gradient(ellipse, rgba(6,182,212,0.12) 0%, transparent 70%)',
+                borderRadius: '50%',
+                pointerEvents: 'none',
+              }} />
               <VisionTerminal visionStatus={visionStatus} />
             </div>
           </div>
 
-          {/* ── Tech-Forward Component ── */}
-          <div className="mt-40 flex flex-col lg:flex-row-reverse items-center gap-16 p-12 rounded-[3rem] bg-gradient-to-br from-blue-600/5 to-purple-600/5 border border-white/5 anim-fade-up overflow-hidden">
-            <div className="flex-1 space-y-8 z-10">
-              <div className="inline-block px-4 py-1 rounded-md bg-blue-500/20 border border-blue-500/30 text-blue-400 text-xs font-bold tracking-tighter">
+          {/* ── Tech Forward Component ── */}
+          <div
+            className="vibe-blue"
+            style={{
+              marginTop: '6rem',
+              display: 'flex',
+              flexWrap: 'wrap-reverse',
+              alignItems: 'center',
+              gap: '3rem',
+              padding: '3rem 2.5rem',
+              borderRadius: '2.5rem',
+              background: 'linear-gradient(135deg, rgba(59,130,246,0.04) 0%, rgba(99,102,241,0.04) 100%)',
+              border: '1px solid rgba(255,255,255,0.06)',
+              overflow: 'hidden',
+            }}
+          >
+            {/* Text */}
+            <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: '1.25rem', position: 'relative', zIndex: 1 }}>
+              <div style={{ display: 'inline-block', padding: '4px 14px', borderRadius: 6, background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)', color: '#93c5fd', fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', alignSelf: 'flex-start' }}>
                 HIGH PERFORMANCE TECH
               </div>
-              <h2 className="text-3xl md:text-5xl font-black text-white leading-tight">
-                {txt.techTitle}
-              </h2>
-              <p className="text-slate-400 text-lg leading-relaxed italic">
+              <h2 style={{ fontSize: 'clamp(1.75rem, 4vw, 2.75rem)', fontWeight: 900, color: '#fff', lineHeight: 1.15 }}>{txt.techTitle}</h2>
+              <p style={{ fontSize: '1rem', color: 'rgba(148,163,184,0.75)', fontStyle: 'italic', lineHeight: 1.65 }}>
                 "Efficiency isn't about doing more, it's about doing what matters faster."
               </p>
-              <p className="text-slate-400 text-lg leading-relaxed">
-                {txt.techDesc}
-              </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                  <div className="text-cyan-400 font-black text-xl mb-1">99.9%</div>
-                  <div className="text-slate-500 text-xs uppercase tracking-widest font-bold">Uptime</div>
-                </div>
-                <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                  <div className="text-purple-400 font-black text-xl mb-1">0.2s</div>
-                  <div className="text-slate-500 text-xs uppercase tracking-widest font-bold">Latency</div>
-                </div>
+              <p style={{ fontSize: '1rem', color: 'rgba(148,163,184,0.85)', lineHeight: 1.75 }}>{txt.techDesc}</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem', marginTop: '0.5rem' }}>
+                {[{ v: '99.9%', l: 'Uptime', c: '#22d3ee' }, { v: '0.2s', l: 'Latency', c: '#c084fc' }].map((m, i) => (
+                  <div key={i} style={{ padding: '1rem', borderRadius: '1rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ fontSize: '1.25rem', fontWeight: 900, color: m.c }}>{m.v}</div>
+                    <div style={{ fontSize: 10, color: 'rgba(100,116,139,0.9)', textTransform: 'uppercase', letterSpacing: '0.15em', fontWeight: 700, marginTop: 4 }}>{m.l}</div>
+                  </div>
+                ))}
               </div>
             </div>
-
-            <div className="flex-1 relative flex justify-center items-center">
-              <div className="absolute w-[120%] h-[120%] bg-blue-500/10 blur-[120px] rounded-full"></div>
-              <div className="relative w-64 h-[500px] bg-[#05051a] border-[6px] border-slate-800 rounded-[3rem] shadow-2xl float-element overflow-hidden">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-slate-800 rounded-b-2xl z-20"></div>
-                <div className="p-6 pt-12 space-y-6">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-cyan-500 to-blue-500 animate-pulse"></div>
-                    <div className="space-y-1">
-                      <div className="w-20 h-2 bg-white/20 rounded"></div>
-                      <div className="w-12 h-2 bg-white/10 rounded"></div>
+            {/* Phone mockup */}
+            <div style={{ flex: '1 1 220px', display: 'flex', justifyContent: 'center', position: 'relative' }}>
+              <div
+                className="float-slow"
+                style={{
+                  width: 210,
+                  height: 420,
+                  background: '#05051a',
+                  border: '5px solid rgba(30,41,59,0.9)',
+                  borderRadius: '2.5rem',
+                  boxShadow: '0 24px 80px rgba(0,0,0,0.5)',
+                  overflow: 'hidden',
+                  position: 'relative',
+                }}
+              >
+                {/* Notch */}
+                <div style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 100, height: 20, background: 'rgba(15,23,42,0.95)', borderBottomLeftRadius: 14, borderBottomRightRadius: 14, zIndex: 2 }} />
+                <div style={{ padding: '1.5rem 1rem 1rem', paddingTop: '2rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #06b6d4, #6366f1)', flexShrink: 0 }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      <div style={{ width: 70, height: 7, background: 'rgba(255,255,255,0.15)', borderRadius: 4 }} />
+                      <div style={{ width: 45, height: 7, background: 'rgba(255,255,255,0.08)', borderRadius: 4 }} />
                     </div>
                   </div>
-                  <div className="h-40 w-full bg-white/5 rounded-2xl border border-white/10 flex flex-col p-4 gap-3">
-                    <div className="w-full h-3 bg-white/10 rounded"></div>
-                    <div className="w-4/5 h-3 bg-white/10 rounded"></div>
-                    <div className="mt-auto flex justify-between">
-                      <div className="w-8 h-8 rounded-lg bg-cyan-500/20"></div>
-                      <div className="w-8 h-8 rounded-lg bg-purple-500/20"></div>
-                      <div className="w-8 h-8 rounded-lg bg-blue-500/20"></div>
+                  <div style={{ height: 120, background: 'rgba(255,255,255,0.04)', borderRadius: 16, border: '1px solid rgba(255,255,255,0.06)', padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div style={{ width: '100%', height: 8, background: 'rgba(255,255,255,0.08)', borderRadius: 4 }} />
+                    <div style={{ width: '80%', height: 8, background: 'rgba(255,255,255,0.08)', borderRadius: 4 }} />
+                    <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between' }}>
+                      {[['rgba(6,182,212,0.2)', '#06b6d4'], ['rgba(168,85,247,0.2)', '#a855f7'], ['rgba(99,102,241,0.2)', '#6366f1']].map(([bg, br], i) => (
+                        <div key={i} style={{ width: 28, height: 28, borderRadius: 8, background: bg, border: `1px solid ${br}30` }} />
+                      ))}
                     </div>
                   </div>
-                  <div className="space-y-3">
-                    {[1, 2, 3, 4].map(i => (
-                      <div key={i} className="flex items-center gap-3 p-3 bg-white/[0.02] rounded-xl border border-white/5">
-                        <div className="w-6 h-6 rounded bg-slate-800"></div>
-                        <div className="w-24 h-2 bg-white/10 rounded"></div>
-                      </div>
-                    ))}
-                  </div>
+                  {[1, 2, 3, 4].map(i => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', padding: '0.6rem 0.75rem', background: 'rgba(255,255,255,0.02)', borderRadius: 12, border: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div style={{ width: 20, height: 20, borderRadius: 6, background: 'rgba(30,41,59,0.8)', flexShrink: 0 }} />
+                      <div style={{ flex: 1, height: 7, background: 'rgba(255,255,255,0.08)', borderRadius: 4 }} />
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="absolute -right-4 top-20 w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl blur-sm opacity-50 float-element" style={{ animationDelay: '-2s' }}></div>
-              <div className="absolute -left-10 bottom-20 w-20 h-20 bg-gradient-to-tr from-cyan-400 to-blue-600 rounded-full blur-sm opacity-30 float-element" style={{ animationDelay: '-4s' }}></div>
+              <div className="float-slow" style={{ position: 'absolute', right: -8, top: 60, width: 52, height: 52, borderRadius: 14, background: 'linear-gradient(135deg, #a855f7, #ec4899)', opacity: 0.45, filter: 'blur(4px)', animationDelay: '-2s' }} />
+              <div className="float-slow" style={{ position: 'absolute', left: -20, bottom: 70, width: 64, height: 64, borderRadius: '50%', background: 'linear-gradient(135deg, #06b6d4, #6366f1)', opacity: 0.28, filter: 'blur(6px)', animationDelay: '-4s' }} />
             </div>
           </div>
 
-          {/* ── Ecosystem / How it works ── */}
-          <div className="mt-40 text-center">
-            <h2 className="text-4xl md:text-5xl font-black text-white mb-6">{txt.howItWorksTitle}</h2>
-            <p className="text-slate-400 max-w-2xl mx-auto mb-20">{txt.howItWorksDesc}</p>
+          {/* ── How It Works ── */}
+          <div
+            className="vibe-purple"
+            style={{ marginTop: '6rem', textAlign: 'center' }}
+          >
+            <h2 style={{ fontSize: 'clamp(1.75rem, 4vw, 2.75rem)', fontWeight: 900, color: '#fff', marginBottom: '1rem' }}>{txt.howItWorksTitle}</h2>
+            <p style={{ fontSize: '1rem', color: 'rgba(148,163,184,0.8)', maxWidth: 560, margin: '0 auto 3.5rem' }}>{txt.howItWorksDesc}</p>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '2.5rem' }}>
               {[
-                { step: "1", title: txt.hw1Title, desc: txt.hw1Desc },
-                { step: "2", title: txt.hw2Title, desc: txt.hw2Desc },
-                { step: "3", title: txt.hw3Title, desc: txt.hw3Desc }
+                { step: '1', title: txt.hw1Title, desc: txt.hw1Desc },
+                { step: '2', title: txt.hw2Title, desc: txt.hw2Desc },
+                { step: '3', title: txt.hw3Title, desc: txt.hw3Desc },
               ].map((item, idx) => (
-                <div key={idx} className="group flex flex-col items-center">
-                  <div className="w-16 h-16 rounded-full bg-slate-900 border border-white/10 flex items-center justify-center mb-8 group-hover:border-cyan-500 group-hover:shadow-[0_0_20px_rgba(6,182,212,0.4)] transition-all duration-500 text-xl font-black text-white">
+                <div
+                  key={idx}
+                  style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'default' }}
+                  onMouseEnter={e => e.currentTarget.querySelector('.step-circle').style.boxShadow = '0 0 22px rgba(6,182,212,0.35)'}
+                  onMouseLeave={e => e.currentTarget.querySelector('.step-circle').style.boxShadow = 'none'}
+                >
+                  <div
+                    className="step-circle"
+                    style={{
+                      width: 60, height: 60, borderRadius: '50%',
+                      background: 'rgba(5,5,26,0.9)',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      marginBottom: '1.5rem',
+                      fontSize: 20, fontWeight: 900, color: '#fff',
+                      transition: 'box-shadow 0.3s, border-color 0.3s',
+                    }}
+                  >
                     {item.step}
                   </div>
-                  <h4 className="text-2xl font-bold mb-4 text-white">{item.title}</h4>
-                  <p className="text-slate-400 text-center leading-relaxed">{item.desc}</p>
+                  <h4 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#fff', marginBottom: '0.75rem' }}>{item.title}</h4>
+                  <p style={{ fontSize: '0.93rem', color: 'rgba(148,163,184,0.8)', lineHeight: 1.7, textAlign: 'center' }}>{item.desc}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* ── Institution Banner ── */}
-          <div className="mt-40 relative group overflow-hidden rounded-[3rem] bg-gradient-to-r from-purple-900/20 to-blue-900/20 border border-white/10 p-12 md:p-20">
-            <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-12">
-              <div className="max-w-2xl text-center lg:text-left">
-                <span className="px-4 py-1.5 rounded-full bg-purple-500/10 text-purple-400 text-xs font-black tracking-widest uppercase border border-purple-500/20">
+          <div
+            style={{
+              marginTop: '6rem',
+              position: 'relative',
+              overflow: 'hidden',
+              borderRadius: '2.5rem',
+              background: 'linear-gradient(135deg, rgba(109,40,217,0.12) 0%, rgba(30,64,175,0.12) 100%)',
+              border: '1px solid rgba(139,92,246,0.18)',
+              padding: 'clamp(2rem, 5vw, 4rem)',
+            }}
+          >
+            <div style={{ position: 'relative', zIndex: 1, display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '2rem' }}>
+              <div style={{ maxWidth: 580 }}>
+                <span style={{
+                  display: 'inline-block',
+                  padding: '5px 14px', borderRadius: 99,
+                  background: 'rgba(139,92,246,0.1)', border: '1px solid rgba(139,92,246,0.22)',
+                  color: '#c084fc', fontSize: 10, fontWeight: 900,
+                  letterSpacing: '0.15em', textTransform: 'uppercase',
+                  marginBottom: '1.25rem',
+                }}>
                   {txt.coachBadge}
                 </span>
-                <h2 className="text-3xl md:text-5xl font-black text-white mt-6 mb-6 leading-tight">
+                <h2 style={{ fontSize: 'clamp(1.5rem, 3.5vw, 2.5rem)', fontWeight: 900, color: '#fff', lineHeight: 1.2, marginBottom: '1rem' }}>
                   {txt.coachTitle}
                 </h2>
-                <p className="text-slate-400 text-lg leading-relaxed">
+                <p style={{ fontSize: '1rem', color: 'rgba(148,163,184,0.85)', lineHeight: 1.75 }}>
                   {txt.coachDesc}
                 </p>
               </div>
-              <Link to="/institution-services" className="px-10 py-5 bg-purple-600 hover:bg-purple-500 text-white rounded-full font-bold transition-all duration-300 shadow-2xl hover:scale-105 whitespace-nowrap">
+              <Link
+                to="/institution-services"
+                style={{
+                  padding: '14px 32px', borderRadius: 99,
+                  background: '#7c3aed', color: '#fff',
+                  fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap',
+                  boxShadow: '0 8px 32px rgba(109,40,217,0.35)',
+                  transition: 'transform 0.2s, background 0.2s',
+                  display: 'inline-block',
+                }}
+                onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.05)'; e.currentTarget.style.background = '#6d28d9'; }}
+                onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.background = '#7c3aed'; }}
+              >
                 {txt.coachBtn}
               </Link>
             </div>
-            <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-[100px] -mr-48 -mt-48 group-hover:bg-purple-500/20 transition-all duration-700"></div>
+            {/* Ambient corner glow */}
+            <div style={{ position: 'absolute', top: '-30%', right: '-5%', width: 320, height: 320, borderRadius: '50%', background: 'rgba(139,92,246,0.08)', filter: 'blur(60px)', pointerEvents: 'none' }} />
           </div>
 
           {/* ── Final CTA ── */}
-          <div className="mt-40 mb-20 text-center space-y-10 py-20 rounded-[4rem] bg-gradient-to-b from-white/[0.03] to-transparent border-t border-white/5">
-            <h2 className="text-4xl md:text-6xl font-black text-white max-w-4xl mx-auto leading-tight">
+          <div
+            style={{
+              marginTop: '6rem',
+              marginBottom: '2rem',
+              textAlign: 'center',
+              padding: 'clamp(3rem, 6vw, 5rem) 1.5rem',
+              borderRadius: '3rem',
+              background: 'linear-gradient(180deg, rgba(255,255,255,0.02) 0%, transparent 100%)',
+              borderTop: '1px solid rgba(255,255,255,0.05)',
+            }}
+          >
+            <h2 style={{ fontSize: 'clamp(1.75rem, 5vw, 3.25rem)', fontWeight: 900, color: '#fff', maxWidth: 680, margin: '0 auto 1.25rem', lineHeight: 1.15 }}>
               {txt.ctaTitle}
             </h2>
-            <p className="text-slate-400 text-lg max-w-xl mx-auto">
+            <p style={{ fontSize: '1rem', color: 'rgba(148,163,184,0.8)', maxWidth: 460, margin: '0 auto 2.5rem', lineHeight: 1.7 }}>
               {txt.ctaDesc}
             </p>
-            <div className="pt-6">
-              <Link to="/register" className="px-12 py-5 bg-white text-[#030014] rounded-full font-black text-lg hover:scale-105 transition-all duration-300 shadow-2xl">
-                {txt.ctaBtn}
-              </Link>
-            </div>
+            <Link
+              to="/register"
+              style={{
+                display: 'inline-block',
+                padding: '16px 44px',
+                borderRadius: 99,
+                background: '#fff',
+                color: '#030014',
+                fontWeight: 900, fontSize: 16,
+                boxShadow: '0 8px 48px rgba(255,255,255,0.15)',
+                transition: 'transform 0.2s, box-shadow 0.2s',
+              }}
+              onMouseEnter={e => { e.currentTarget.style.transform = 'scale(1.06)'; e.currentTarget.style.boxShadow = '0 12px 60px rgba(255,255,255,0.22)'; }}
+              onMouseLeave={e => { e.currentTarget.style.transform = 'scale(1)'; e.currentTarget.style.boxShadow = '0 8px 48px rgba(255,255,255,0.15)'; }}
+            >
+              {txt.ctaBtn}
+            </Link>
           </div>
 
         </div>
